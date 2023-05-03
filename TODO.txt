@@ -1,0 +1,10 @@
+
+Understand pylib structure
+
+------------------
+
+Implement connection event callback
+
+Kill worker tasks if client is finalized.
+
+Implement messages
