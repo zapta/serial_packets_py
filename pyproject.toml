@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "serial_packets"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="Zapta", email="zapta@zapta.com" },
 ]
@@ -13,8 +13,13 @@ readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication"
+    "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
     "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "pyserial-asyncio >=0.6.0",
+    "pythoncrc >=1.21.0",
 ]
 
 [project.urls]
