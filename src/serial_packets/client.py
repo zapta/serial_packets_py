@@ -12,7 +12,7 @@ from asyncio.transports import BaseTransport
 from ._packet_encoder import PacketEncoder
 from ._packet_decoder import PacketDecoder, DecodedPacket
 from ._packets import PacketType, DATA_MAX_LEN
-from .packets import PacketStatus
+from .packets import PacketStatus, PacketsEvent, PacketsEventType
 
 logger = logging.getLogger(__name__)
 
@@ -44,23 +44,26 @@ class _SerialProtocol(asyncio.Protocol):
     """Callbacks for the asyncio serial client."""
 
     def __init__(self):
+        self.__client: SerialPacketsClient = None
         self.__port: str = None
         self.__packet_decoder: PacketDecoder = None
 
-    def set(self, port: str, packet_decoder: PacketDecoder):
+    def set(self, client: SerialPacketsClient, port: str, packet_decoder: PacketDecoder):
+        self.__client = client
         self.__port = port
         self.__packet_decoder = packet_decoder
 
     def connection_made(self, transport: BaseTransport):
-        logger.info("Serial [%s] opened.", self.__port)
-        # print(f"port opened", flush=True)
-        # transport.serial.rts = False
+        self.__client._post_event(PacketsEvent(PacketsEventType.CONNECTED,  logging.INFO))
+        # logger.info("Serial [%s] opened.", self.__port)
 
     def data_received(self, data: bytes):
-        self.__packet_decoder.receive(data)
+        self.__packet_decoder._receive(data)
 
     def connection_lost(self, exc):
-        logger.info("Serial [%s] closed.", self.__port)
+        self.__client._post_event(PacketsEvent(PacketsEventType.DISCONNECTED, logging.WARN))
+
+        # logger.info("Serial [%s] closed.", self.__port)
 
     def pause_writing(self):
         logger.warn("Serial [%s] paused.", self.__port)
@@ -77,6 +80,7 @@ class SerialPacketsClient:
                  port: str,
                  command_async_callback: Optional(Callable[[int, bytearray],
                                                            Tuple(int, bytearray)]),
+                 event_async_callback: Optional(Callable[[PacketsEvents], None]),
                  baudrate: int = 115200,
                  workers=3):
         """
@@ -101,18 +105,25 @@ class SerialPacketsClient:
         self.__port = port
         self.__baudrate = baudrate
         self.__command_async_callback = command_async_callback
+        self.__event_async_callback = event_async_callback
         self.__transport = None
         self.__protocol = None
         self.__packet_encoder = PacketEncoder()
         self.__packet_decoder = PacketDecoder()
         self.__command_id_counter = 0
         self.__tx_cmd_contexts: Dict[int, _TxCommandContext] = {}
+        self.__event_queue = asyncio.Queue()
+
         # Per https://stackoverflow.com/questions/71304329
         self.__background_tasks = []
 
         # Create a worker task to clean pending command contexts that were timeout.
         logger.debug("Creating cleanup task")
         task = asyncio.create_task(self.__cleanup_task_body(), name="cleanup")
+        self.__background_tasks.append(task)
+        
+        logger.debug("Creating packets event task")
+        task = asyncio.create_task(self.__events_task_body(), name="packet_events")
         self.__background_tasks.append(task)
 
         # Create a few worker tasks to process incoming packets.
@@ -123,17 +134,21 @@ class SerialPacketsClient:
 
     def __str__(self) -> str:
         return f"{self.__port}@{self.__baudrate}"
+      
+    def _post_event(self, event: PacketsEvent) -> None:
+      logger.log(event.level, "Posted event: %s", event)
+      self.__event_queue.put_nowait(event)
 
     async def connect(self):
         """Connect to serial port."""
         logger.info("Connecting to port [%s]", self.__port)
         self.__transport, self.__protocol = await serial_asyncio.create_serial_connection(
             asyncio.get_event_loop(), _SerialProtocol, self.__port, baudrate=self.__baudrate)
-        self.__protocol.set(self.__port, self.__packet_decoder)
+        self.__protocol.set(self, self.__port, self.__packet_decoder)
 
     async def __cleanup_task_body(self):
         """Body of the worker task that clean timeout tx command contexts"""
-        logger.debug("Cleanup task [%s] started", asyncio.current_task().get_name())
+        logger.debug("Cleanup task [%s] started", task_name)
         while True:
             await asyncio.sleep(0.1)
             # We can't delete while iterating the dict so iterating
@@ -151,7 +166,7 @@ class SerialPacketsClient:
         """Body of the worker tasks to serve incoming packets."""
         task_name = asyncio.current_task().get_name()
         # print(f"RX task '{task_name}' started", flush=True)
-        logger.debug("RX worker task [%s] started", asyncio.current_task().get_name())
+        logger.debug("RX worker task [%s] started", task_name)
         while True:
             packet: DecodedPacket = await self.__packet_decoder.get_next_packet()
             # Since we call user's callback we want to protect the thread from
@@ -164,6 +179,30 @@ class SerialPacketsClient:
                     await self.__handle_incoming_response_packet(packet)
                     continue
                 logger.error(f"Unknown packet type [%d], dropping", packet.type)
+            except Exception as e:
+                logger.error("Exception in worker [%s]: %s", task_name, e)
+                traceback.print_exception(e)
+                
+                
+    async def __events_task_body(self):
+        """Body of the worker tasks to service posted events.
+        
+        For now the event information is minimal and informative
+        only but we may extend it in the future.
+        """
+        task_name = asyncio.current_task().get_name()
+        logger.debug("Event worker task [%s] started", task_name)
+        while True:
+            event: PacketsEvent = await self.__event_queue.get() 
+            logger.debug("Event worker got an event")
+            if self.__event_async_callback is None:
+              logger.debug("No event callback, dropping event: %s", event)
+              continue
+            # Since we call user's callback we want to protect the thread from
+            # exceptions.
+            try:
+                logger.log(event.level, "Callback with event %s", event)
+                await self.__event_async_callback(event)
             except Exception as e:
                 logger.error("Exception in worker [%s]: %s", task_name, e)
                 traceback.print_exception(e)

@@ -10,7 +10,7 @@ import asyncio
 import logging
 from typing import Tuple, Optional
 from serial_packets.client import SerialPacketsClient
-from serial_packets.packets import PacketStatus
+from serial_packets.packets import PacketStatus, PacketsEvent, PacketsEventType
 
 # Set default logging level for the entire program.
 logging.basicConfig(level=logging.DEBUG)
@@ -25,6 +25,11 @@ parser.add_argument('--send',
                     action=argparse.BooleanOptionalAction,
                     help="Specifies if to auto send periodically.")
 args = parser.parse_args()
+
+
+async def event_async_callback(event: PacketsEvent) -> None:
+    logger.info("%s event", event)
+
 
 async def command_async_callback(endpoint: int, data: bytearray) -> Tuple[int, bytearray]:
     logger.info(f"Received command: [%d] %s", endpoint, data.hex(sep=' '))
@@ -41,8 +46,8 @@ def handle_command_endpoint_20(data: bytearray) -> Tuple[int, bytearray]:
 
 async def async_main():
     logger.info("Started.")
-    assert(args.port is not None)
-    client = SerialPacketsClient(args.port, command_async_callback)
+    assert (args.port is not None)
+    client = SerialPacketsClient(args.port, command_async_callback, event_async_callback)
     await client.connect()
     logger.info("Connected")
     while True:
@@ -55,5 +60,6 @@ async def async_main():
             logger.info("Sending command: [%d], %s", endpoint, tx_data.hex(sep=' '))
             rx_status, rx_data = await client.send_command_blocking(endpoint, tx_data, timeout=0.2)
             logger.info(f"Command result: [%d], %s", rx_status, rx_data.hex(sep=' '))
+
 
 asyncio.run(async_main())

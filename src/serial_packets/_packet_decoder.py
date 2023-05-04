@@ -57,7 +57,7 @@ class PacketDecoder:
         """Blocking asyncio fetch of next pending packet."""
         return await self.__packets_queue.get()
 
-    def receive(self, data: bytes):
+    def _receive(self, data: bytes):
         for b in data:
             self.__receive_byte(b)
 

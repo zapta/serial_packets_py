@@ -1,10 +1,13 @@
 
+make the log messages more readable.
 
 Implement connection event callback
 
 -----
 
 Add documentation
+
+Provide more information with the events.
 
 Improve PYPI presense
 
