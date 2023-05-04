@@ -118,19 +118,30 @@ class SerialPacketsClient:
         self.__background_tasks = []
 
         # Create a worker task to clean pending command contexts that were timeout.
-        logger.debug("Creating cleanup task")
-        task = asyncio.create_task(self.__cleanup_task_body(), name="cleanup")
-        self.__background_tasks.append(task)
+        # logger.debug("Creating cleanup task")
+        # task = asyncio.create_task(self.__cleanup_task_body(), name="cleanup")
+        # self.__background_tasks.append(task)
         
-        logger.debug("Creating packets event task")
-        task = asyncio.create_task(self.__events_task_body(), name="packet_events")
-        self.__background_tasks.append(task)
+        # logger.debug("Creating cleanup task")
+        # task = asyncio.create_task(self.__safe_task_runner(self.__cleanup_task_body), name="cleanup")
+        # self.__background_tasks.append(task)
+        
+        self.__create_worker_task(self.__cleanup_task_body, "cleanup")
+        
+        self.__create_worker_task(self.__events_task_body, "events")
+
+        
+        # logger.debug("Creating packets event task")
+        # task = asyncio.create_task(self.__events_task_body(), name="packet_events")
+        # self.__background_tasks.append(task)
 
         # Create a few worker tasks to process incoming packets.
         logger.debug("Creating [%d] workers tasks", workers)
         for i in range(3):
-            task = asyncio.create_task(self.__rx_task_body(), name=f"rx_task_{i+1:02d}")
-            self.__background_tasks.append(task)
+            self.__create_worker_task(self.__rx_task_body, f"rx_task_{i+1:02d}")
+
+            # task = asyncio.create_task(self.__rx_task_body(), name=f"rx_task_{i+1:02d}")
+            # self.__background_tasks.append(task)
 
     def __str__(self) -> str:
         return f"{self.__port}@{self.__baudrate}"
@@ -145,21 +156,35 @@ class SerialPacketsClient:
         self.__transport, self.__protocol = await serial_asyncio.create_serial_connection(
             asyncio.get_event_loop(), _SerialProtocol, self.__port, baudrate=self.__baudrate)
         self.__protocol.set(self, self.__port, self.__packet_decoder)
+        
+    def __create_worker_task(self, task_body, name):
+        logger.debug("Creating worker task '%s'", name)
+        task = asyncio.create_task(self.__worker_task_runner(task_body), name=name)
+        self.__background_tasks.append(task)
+      
+    async def __worker_task_runner(self, task_body):
+       """Worker tasks runner. Restarts in case of an exception"""
+       task_name = asyncio.current_task().get_name()
+       while True:
+        try:
+          await task_body()
+        except Exception as e:
+          logger.error("Task [%s] exception:", task_name)
+          traceback.print_exception(e)
 
     async def __cleanup_task_body(self):
         """Body of the worker task that clean timeout tx command contexts"""
         task_name = asyncio.current_task().get_name()
         logger.debug("Cleanup task [%s] started", task_name)
         while True:
-            await asyncio.sleep(0.1)  # @@@ should be 0.1
-            # logger.debug("Cleanup task [%s] loop", task_name)
-            # We can't delete while iterating the dict so iterating
-            # on an independent list of keys instead.
+            await asyncio.sleep(0.05)  
+            # print(f"Cleaning task loop", flush=True)
+            # NOTE: Deleting dict elements inside a dict iteration is not allowed.
+            # Using a workaround instead.
             keys = list(self.__tx_cmd_contexts.keys())
             for cmd_id in keys:
                 tx_context = self.__tx_cmd_contexts.get(cmd_id)
                 if tx_context.is_expired():
-                    # print(f"Cleaning timeout command {cmd_id}", flush=True)
                     logger.error("Command [%d] timeout", cmd_id)
                     tx_context.set_result(0xff, bytearray())
                     self.__tx_cmd_contexts.pop(cmd_id)
@@ -173,17 +198,14 @@ class SerialPacketsClient:
             packet: DecodedPacket = await self.__packet_decoder.get_next_packet()
             # Since we call user's callback we want to protect the thread from
             # exceptions.
-            try:
-                if packet.type == PacketType.COMMAND:
-                    await self.__handle_incoming_command_packet(packet)
-                    continue
-                if packet.type == PacketType.RESPONSE:
-                    await self.__handle_incoming_response_packet(packet)
-                    continue
-                logger.error(f"Unknown packet type [%d], dropping", packet.type)
-            except Exception as e:
-                logger.error("Exception in worker [%s]: %s", task_name, e)
-                traceback.print_exception(e)
+            if packet.type == PacketType.COMMAND:
+                await self.__handle_incoming_command_packet(packet)
+                continue
+            if packet.type == PacketType.RESPONSE:
+                await self.__handle_incoming_response_packet(packet)
+                continue
+            logger.error(f"Unknown packet type [%d], dropping", packet.type)
+           
                 
                 
     async def __events_task_body(self):
@@ -199,15 +221,10 @@ class SerialPacketsClient:
             logger.debug("Event worker got an event")
             if self.__event_async_callback is None:
               logger.debug("No event callback, dropping event: %s", event)
-              continue
-            # Since we call user's callback we want to protect the thread from
-            # exceptions.
-            try:
-                logger.log(event.level, "Callback with event %s", event)
-                await self.__event_async_callback(event)
-            except Exception as e:
-                logger.error("Exception in worker [%s]: %s", task_name, e)
-                traceback.print_exception(e)
+              continue    
+            logger.log(event.level, "Callback with event %s", event)
+            await self.__event_async_callback(event)
+            
 
     async def __handle_incoming_command_packet(self, packet: DecodedPacket):
         assert (packet.type == PacketType.COMMAND)
