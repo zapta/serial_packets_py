@@ -10,8 +10,8 @@
       "name": "Python: examples/main.py",
       "type": "python",
       "request": "launch",
-      "cwd": "${workspaceFolder}/src/examples",
-      "program": "${workspaceFolder}/src/examples/main.py",
+      "cwd": "${fileDirname}",
+      "program": "${file}",
       "args": [
         "--port", "COM21",
         "--send"

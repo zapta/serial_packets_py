@@ -101,7 +101,7 @@ class SerialPacketsClient:
         Returns:
         * A new serial messaging client.
         """
-        assert (workers > 0, workers < 10)
+        assert (workers > 0 and workers < 10)
         self.__port = port
         self.__baudrate = baudrate
         self.__command_async_callback = command_async_callback
@@ -148,9 +148,11 @@ class SerialPacketsClient:
 
     async def __cleanup_task_body(self):
         """Body of the worker task that clean timeout tx command contexts"""
+        task_name = asyncio.current_task().get_name()
         logger.debug("Cleanup task [%s] started", task_name)
         while True:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.1)  # @@@ should be 0.1
+            # logger.debug("Cleanup task [%s] loop", task_name)
             # We can't delete while iterating the dict so iterating
             # on an independent list of keys instead.
             keys = list(self.__tx_cmd_contexts.keys())
@@ -158,7 +160,7 @@ class SerialPacketsClient:
                 tx_context = self.__tx_cmd_contexts.get(cmd_id)
                 if tx_context.is_expired():
                     # print(f"Cleaning timeout command {cmd_id}", flush=True)
-                    logger.warn("Command [%d] timeout", cmd_id)
+                    logger.error("Command [%d] timeout", cmd_id)
                     tx_context.set_result(0xff, bytearray())
                     self.__tx_cmd_contexts.pop(cmd_id)
 
