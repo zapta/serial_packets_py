@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 # This will use the local copy of serial_packets. Comment
-# out to use the pip loaded version
+# out to use the pip loaded version. This assumes that cwd
+# is at this directory. For running under vscode debugger, we use
+# a launch.json configuration that sets cwd.
 import sys
-sys.path.insert(0, "..")
+sys.path.insert(0, "../../src")
 
 import argparse
 import asyncio

@@ -1,0 +1,23 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    // This configuration assumes that VSCode project is at the
+    // top director of the repository.
+    {
+      "name": "Python: examples/main.py",
+      "type": "python",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/src/examples",
+      "program": "${workspaceFolder}/src/examples/main.py",
+      "args": [
+        "--port", "COM21",
+        "--send"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}
