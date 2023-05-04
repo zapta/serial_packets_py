@@ -1,10 +1,15 @@
 
-Understand pylib structure
-
-------------------
 
 Implement connection event callback
+
+-----
+
+Add documentation
+
+Improve PYPI presense
 
 Kill worker tasks if client is finalized.
 
 Implement messages
+
+

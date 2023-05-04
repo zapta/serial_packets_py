@@ -1,10 +1,16 @@
+# Doc:
+# https://hatch.pypa.io/latest/config/build/
+#
+# Examples:
+# https://github.com/pypa/hatch/blob/master/pyproject.toml
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "serial_packets"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
   { name="Zapta", email="zapta@zapta.com" },
 ]
@@ -20,6 +26,19 @@ classifiers = [
 dependencies = [
     "pyserial-asyncio >=0.6.0",
     "pythoncrc >=1.21.0",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "LICENSE",
+  "/src/serial_packets",
+]
+# NOTE: root .gitignore can't be excluded per 
+# https://github.com/pypa/hatch/discussions/368
+exclude = [
+  ".gitignore",
+  ".vscode",
+  ".*.sh",
 ]
 
 [project.urls]

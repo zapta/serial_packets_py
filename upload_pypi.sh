@@ -12,6 +12,9 @@
 # To install the test package
 #  pip install serial_packets 
 
+# Abort if error
+set -xe
+
 pip install twine --upgrade
 python -m twine upload --repository pypi dist/*
 

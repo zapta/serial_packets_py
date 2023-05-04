@@ -12,6 +12,9 @@
 # To install the test package
 #  pip install --index-url https://test.pypi.org/simple/ --no-deps serial_packets 
 
+# Abort if error
+set -xe
+
 pip install twine --upgrade
 python -m twine upload --repository testpypi dist/*
 
