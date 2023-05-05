@@ -1,9 +1,11 @@
+# A sample program that accepts handles serial_packets commands at endpoint 20.
+# To test with master.py, use two serial points with crossed RX/TX.
+
 from __future__ import annotations
 
-# This will use the local copy of serial_packets. Comment
-# out to use the pip loaded version. This assumes that cwd
-# is this directory.
+# For using the local version of serial_packet.
 import sys
+
 sys.path.insert(0, "../../src")
 
 import argparse
@@ -15,16 +17,10 @@ from serial_packets.packets import PacketStatus, PacketsEvent, PacketsEventType
 
 # Set default logging level for the entire program.
 logging.basicConfig(level=logging.DEBUG)
-
-logger = logging.getLogger("main")
+logger = logging.getLogger("slave_main")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", dest="port", default=None, help="Serial port to use.")
-parser.add_argument('--send',
-                    dest="send",
-                    default=True,
-                    action=argparse.BooleanOptionalAction,
-                    help="Specifies if to auto send periodically.")
 args = parser.parse_args()
 
 
@@ -36,6 +32,7 @@ async def command_async_callback(endpoint: int, data: bytearray) -> Tuple[int, b
     logger.info(f"Received command: [%d] %s", endpoint, data.hex(sep=' '))
     if (endpoint == 20):
         return handle_command_endpoint_20(data)
+    # Add here handling of other end points.
     return (PacketStatus.UNHANDLED.value, bytearray())
 
 
@@ -52,15 +49,8 @@ async def async_main():
     await client.connect()
     logger.info("Connected")
     while True:
-        # await asyncio.sleep(3)
-        await asyncio.sleep(0.5)
-        if args.send:
-            endpoint = 20
-            tx_data = bytearray([0x13, 0x00, 0x7D, 0x00, 0x7E, 0x00])
-            print(f"------------", flush=True)
-            logger.info("Sending command: [%d], %s", endpoint, tx_data.hex(sep=' '))
-            rx_status, rx_data = await client.send_command_blocking(endpoint, tx_data, timeout=0.2)
-            logger.info(f"Command result: [%d], %s", rx_status, rx_data.hex(sep=' '))
+        # Nothing to do here in this simple example.
+        await asyncio.sleep(1)
 
 
-asyncio.run(async_main())
+asyncio.run(async_main(), debug=True)
