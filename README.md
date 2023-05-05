@@ -143,10 +143,10 @@ last byte of each packet, and also optionally just before the first byte of pack
 ### Byte stuffing
 To make the flag byte 0x7E unique in the serial stream, the Serial Packet uses 'byte stuffing' borrowed from the HDLC protocol. This allows the protocol to resync on next packet boundary, in case of line errors. This byte stuffing is done using the escape byte 0X7D
 
-| Packet byte | Wire sequence | Comments            |
+| Packet byte | Wire bytes | Comments            |
 | :---------- | :------------ | :------------------ |
 | 0x7E        | 0x7D, 0x5E    | Escaped flag byte   |
-| 0x7D        | 0x75, 0x5D    | Escaped escape byte |
+| 0x7D        | 0x7D, 0x5D    | Escaped escape byte |
 | Other bytes | No change     | The common case     |
 
 
@@ -168,7 +168,16 @@ As of May 2023, these are the predefined status codes. For the updated list, loo
 | 6 - 99       | Reserved         | For future protocol definitions.     |
 | 100-255      | Custom           | For user's application specific use. |
 
-## Example
+
+## Endpoints
+Endpoints represent the destinations of commands and messages on the receiving node and allows the application to distinguish between command and message types. End points are identified by a single byte, where the values 0-199 are available for the application, and the values 200-255 are reserved for future expansions of the protocol.
+
+## Data
+Commands, responses and messages pass  data which is a sequence of zero to 1024 bytes. These bytes are opaque to the protocol which treat them as a blob. It's up to the application to determine the semantic of these bytes and to encode and decode them as needed.
+
+
+
+## Application Example
 
 TBD
 
@@ -201,6 +210,12 @@ A: Of course. Please feel free to contact us on github.
 **Q**: Why asyncio based implementation, doesn't it complicate things?
 
 A: Asyncio may make simple programs more complicated but it allows for more responsive programs with efficient parallel I/O.
+
+---
+
+**Q**: Do you plan to provide also cross platform APIs for data serialization/deserialization?
+
+A: This is a good idea, but we are not working on it as of May 2023. We would any recommendations or implementations of such a portable API.
 
 ---
 

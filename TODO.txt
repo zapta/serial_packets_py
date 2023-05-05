@@ -1,4 +1,6 @@
 
+Reserve endpoint values.
+
 Doc, insert TOC  
 
 Allow to configure rx workers count
