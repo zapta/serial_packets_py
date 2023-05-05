@@ -36,6 +36,7 @@ class PacketStatus(Enum):
     UNHANDLED = 3
     INVALID_ARGUMENT = 4
     LENGTH_ERROR = 5
+    OUT_OF_RANGE = 6
 
     # Users can start allocating error codes from
     # here to 255.

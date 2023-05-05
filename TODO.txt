@@ -1,5 +1,9 @@
 
-Move the task runner to a separate failed
+Doc, insert TOC  
+
+Allow to configure rx workers count
+
+Move the task runner to a separate file
 
 format the log messages to be more readable.
 
