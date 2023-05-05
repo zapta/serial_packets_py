@@ -164,8 +164,8 @@ As of May 2023, these are the predefined status codes. For the updated list, loo
 | 3            | UNHANDLED        | No handler for this command.         |
 | 4            | INVALID_ARGUMENT | Invalid argument value in a request. |
 | 5            | LENGTH_ERROR     | Data has invalid length.             |
-| 5            | OUT_OF_RANGE     | A more specific invalid argument.    |
-| 6 - 99       | Reserved         | For future protocol definitions.     |
+| 6            | OUT_OF_RANGE     | A more specific invalid argument.    |
+| 7 - 99       | Reserved         | For future protocol definitions.     |
 | 100-255      | Custom           | For user's application specific use. |
 
 
