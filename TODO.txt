@@ -1,18 +1,13 @@
 
-Reserve endpoint values.
-
-Doc, insert TOC  
-
-Allow to configure rx workers count
-
-Move the task runner to a separate file
-
 format the log messages to be more readable.
 
 
 -----
 
-Add documentation
+
+Doc, insert TOC  
+
+Clean documentation
 
 improve the detection of failed background tasks.
 
@@ -22,6 +17,5 @@ Improve PYPI presence
 
 Kill worker tasks if client is finalized.
 
-Implement messages
 
 

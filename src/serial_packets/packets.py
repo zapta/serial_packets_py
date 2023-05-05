@@ -6,8 +6,14 @@ import logging
 # Max size of data that is sent in a command request, command response,
 # or in a message. This is the original size in bytes before byte stuffing.
 # Data min length is always 0.
-DATA_MAX_LEN = 1024
+MAX_DATA_LEN = 1024
 
+# Endpoints 200-255 are reserved for future protocol expansion.
+MAX_USER_ENDPOINT = 199
+
+MIN_RX_WORKERS_COUNT=1
+MAX_RX_WORKER_COUNT=20
+DEFAULT_RX_WORKER_COUNT=5
 
 class PacketsEventType(Enum):
     """Event type."""

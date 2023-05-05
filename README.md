@@ -29,23 +29,23 @@ The following tables lists the parts of a command request and response  packets,
 
 #### Command packet
 
-| Field     | Size [bytes] | Source   | Description                                |
-| :-------- | :----------- | :------- | :----------------------------------------- |
-| TYPE      | 1            | Auto     | The value 0x01                             |
-| CMD_ID    | 4            | Auto     | A unique command id for response matching. |
-| END_POINT | 1            | **User** | The target endpoint of this command.       |
-| DATA      | 0 to 1024    | **User** | Command data.                              |
-| CRC       | 2            | Auto     | Packet CRC.                                |
+| Field     | Size [bytes] | Source   | Description                                            |
+| :-------- | :----------- | :------- | :----------------------------------------------------- |
+| TYPE      | 1            | Auto     | The value 0x01                                         |
+| CMD_ID    | 4            | Auto     | A unique command id for response matching. Big Endian. |
+| END_POINT | 1            | **User** | The target endpoint of this command.                   |
+| DATA      | 0 to 1024    | **User** | Command data.                                          |
+| CRC       | 2            | Auto     | Packet CRC. Big endian.                                |
 
 #### Response packet
 
-| Field  | Size [bytes] | Source   | Description                     |
-| :----- | :----------- | :------- | :------------------------------ |
-| TYPE   | 1            | Auto     | The value 0x02                  |
-| CMD_ID | 4            | Auto     | The ID of the original command. |
-| STATUS | 1            | **User** | Response status.                |
-| DATA   | 0 to 1024    | **User** | Response data.                  |
-| CRC    | 2            | Auto     | Packet CRC.                     |
+| Field  | Size [bytes] | Source   | Description                                 |
+| :----- | :----------- | :------- | :------------------------------------------ |
+| TYPE   | 1            | Auto     | The value 0x02                              |
+| CMD_ID | 4            | Auto     | The ID of the original command. Big Endian. |
+| STATUS | 1            | **User** | Response status.                            |
+| DATA   | 0 to 1024    | **User** | Response data.                              |
+| CRC    | 2            | Auto     | Packet CRC. Big endian.                     |
 
 #### Sending a command
 
@@ -104,7 +104,7 @@ Message are a simpler case of a commands with no response. They are useful for n
 | TYPE      | 1            | Auto     | The value 0x03                       |
 | END_POINT | 1            | **User** | The target endpoint of this command. |
 | DATA      | 0 to 1024    | **User** | Command data.                        |
-| CRC       | 2            | Auto     | Packet CRC.                          |
+| CRC       | 2            | Auto     | Packet CRC. Big endian.              |
 
 #### Sending a message
 
@@ -144,10 +144,10 @@ last byte of each packet, and also optionally just before the first byte of pack
 To make the flag byte 0x7E unique in the serial stream, the Serial Packet uses 'byte stuffing' borrowed from the HDLC protocol. This allows the protocol to resync on next packet boundary, in case of line errors. This byte stuffing is done using the escape byte 0X7D
 
 | Packet byte | Wire bytes | Comments            |
-| :---------- | :------------ | :------------------ |
-| 0x7E        | 0x7D, 0x5E    | Escaped flag byte   |
-| 0x7D        | 0x7D, 0x5D    | Escaped escape byte |
-| Other bytes | No change     | The common case     |
+| :---------- | :--------- | :------------------ |
+| 0x7E        | 0x7D, 0x5E | Escaped flag byte   |
+| 0x7D        | 0x7D, 0x5D | Escaped escape byte |
+| Other bytes | No change  | The common case     |
 
 
 ## Status codes

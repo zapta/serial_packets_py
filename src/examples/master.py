@@ -5,6 +5,7 @@ from __future__ import annotations
 
 # For using the local version of serial_packet.
 import sys
+
 sys.path.insert(0, "../../src")
 
 import argparse
@@ -15,7 +16,7 @@ from serial_packets.client import SerialPacketsClient
 from serial_packets.packets import PacketStatus, PacketsEvent, PacketsEventType
 
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger("master_main")
+logger = logging.getLogger("master")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", dest="port", default=None, help="Serial port to use.")
@@ -24,6 +25,10 @@ args = parser.parse_args()
 
 async def event_async_callback(event: PacketsEvent) -> None:
     logger.info("%s event", event)
+
+
+async def message_async_callback(endpoint: int, data: bytearray) -> Tuple[int, bytearray]:
+    logger.info(f"Received message: [%d] %s", endpoint, data.hex(sep=' '))
 
 
 async def command_async_callback(endpoint: int, data: bytearray) -> Tuple[int, bytearray]:
@@ -35,7 +40,8 @@ async def command_async_callback(endpoint: int, data: bytearray) -> Tuple[int, b
 async def async_main():
     logger.info("Started.")
     assert (args.port is not None)
-    client = SerialPacketsClient(args.port, command_async_callback, event_async_callback)
+    client = SerialPacketsClient(args.port, command_async_callback, message_async_callback,
+                                 event_async_callback)
     await client.connect()
     logger.info("Master connected")
     while True:
