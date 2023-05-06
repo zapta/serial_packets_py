@@ -1,17 +1,13 @@
 
-Doc, insert TOC  
-
 Clean documentation
-
 
 Update code snippets in the docs.
 
 -----
 
-
 Improve PYPI presence
 
-Kill worker tasks if client is finalized.
+Kill client's worker tasks when the client is client is finalized. 
 
 
 

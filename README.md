@@ -2,27 +2,29 @@
 
 Python implementations of the Serial Packets protocol.
 
-WORK IN PROGRESS, NOT READY FOR PUBLIC RELEASE.
+AS OF MAY 2023, THIS IS WORK IN PROGRESS, NOT READY YET FOR PUBLIC RELEASE.
 
-* PYPI: https://pypi.org/project/serial-packets/ 
-* Github: https://github.com/zapta/serial_packets_py
-
+* PYPI: <https://pypi.org/project/serial-packets/>
+* Github: <https://github.com/zapta/serial_packets_py>
 
 ## Protocol Description
+
 The Serial Packets protocol is packet based point-to-point serial transport for communication between devices. For example, it can be used for communication between an Arduino device and a PC, such that the PC controls the device and the device can send data back to the PC. The protocol is symmetrical such that both nodes have the same capabilities with no notion of master/slave at the protocol level.
 
 ### Highlights
+
 * Packet oriented. Users don't need to parse a serial stream.
 * Efficient, with low per-packet overhead.
 * Symmetrical, both ends have the same capabilities.
 * Full duplex.
 * Supports endpoint addressing.
-* Supports one way messages and round trip command/response. 
+* Supports one way messages and round trip command/response.
 * Packets are verified with CRC.
-* Automatic detection on next packet, in case of line errors, via HDLC stuffing. 
+* Automatic detection on next packet, in case of line errors, via HDLC stuffing.
 * Intuitive wire representation.
 
 ### Commands
+
 Commands are round-trip interactions where one node send a 'command' packet to the other and receives back a 'response' packet that is associated with that specific command. Commands are useful to control a device and to retrieve information by polling the device.
 
 The following tables lists the parts of a command request and response  packets, before converting to wire representation (explained later):
@@ -52,8 +54,8 @@ The following tables lists the parts of a command request and response  packets,
 The SerialPacketsClient class provides two methods for sending commands.
 *send_command_future(...)* for sending using a future that provides the response and *send_command_blocking(...)* which is a convenience method that blocks internally on the future.
 
+##### Future based API**
 
-**Future based API**
 ```python
 client = SerialPacketsClient("COM1", my_command_async_callback my_event_async_callback)
 await client.connect()
@@ -65,7 +67,8 @@ future =  client.send_command_future(cmd_endpoint, cmd_data, timeout=0.2)
 status, data = await future
 ```
 
-**Blocking API**
+##### Blocking API**
+
 ```python
 client = SerialPacketsClient("COM1", my_command_async_callback my_event_async_callback)
 await client.connect()
@@ -74,7 +77,9 @@ cmd_endpoint = 20
 cmd_data = bytearray([0x01, 0x02, 0x03])
 rx_status, rx_data = await client.send_command_blocking(cmd_endpoint, cmd_data, timeout=0.2)
 ```
+
 #### Receiving a command
+
 Incoming commands are received via a single callback function that is passed to the SerialPacketsClient when it's created. The call back is an async function that receives the endpoint and data of the command and returns the status and data of the response. The client maintains a pool of asyncio tasks that serves incoming packets such it's possible to have  multiple commands processed in parallel. If the command is not handled, the callback should return an empty response with the status UNHANDLED.value.
 
 ```python
@@ -95,6 +100,7 @@ await client.connect()
 ```
 
 ### Messages
+
 Message are a simpler case of a commands with no response. They are useful for notifications such as a periodic data reporting, and have lower overhead than commands.
 
 #### Message packet
@@ -111,7 +117,6 @@ Message are a simpler case of a commands with no response. They are useful for n
 The SerialPacketsClient class provides two methods for sending commands.
 *send_command_future(...)* for sending using a future that provides the response and *send_command_blocking(...)* which is a convenience method that blocks internally on the future.
 
-
 **API**
 Sending a message is simpler than sending a command because it doesn't involves waiting and handling a response.
 
@@ -125,6 +130,7 @@ client.send_message(msg_endpoint, msg_data)
 ```
 
 #### Receiving a message
+
 TBD
 
 **API**
@@ -137,10 +143,12 @@ TBD
 ## Wire representation
 
 ### Packet flag byte
-The Serial Packets protocol uses packet flags similar to the HDLC protocol, with the special flag byte 0x7E inserted in the serial stream to mark packet ends. A flag byte is always inserted immediately after the 
+
+The Serial Packets protocol uses packet flags similar to the HDLC protocol, with the special flag byte 0x7E inserted in the serial stream to mark packet ends. A flag byte is always inserted immediately after the
 last byte of each packet, and also optionally just before the first byte of packets, if the interval from the previous packet was longer than a certain time period.
 
 ### Byte stuffing
+
 To make the flag byte 0x7E unique in the serial stream, the Serial Packet uses 'byte stuffing' borrowed from the HDLC protocol. This allows the protocol to resync on next packet boundary, in case of line errors. This byte stuffing is done using the escape byte 0X7D
 
 | Packet byte | Wire bytes | Comments            |
@@ -148,7 +156,6 @@ To make the flag byte 0x7E unique in the serial stream, the Serial Packet uses '
 | 0x7E        | 0x7D, 0x5E | Escaped flag byte   |
 | 0x7D        | 0x7D, 0x5D | Escaped escape byte |
 | Other bytes | No change  | The common case     |
-
 
 ## Status codes
 
@@ -168,14 +175,13 @@ As of May 2023, these are the predefined status codes. For the updated list, loo
 | 7 - 99       | Reserved         | For future protocol definitions.     |
 | 100-255      | Custom           | For user's application specific use. |
 
-
 ## Endpoints
+
 Endpoints represent the destinations of commands and messages on the receiving node and allows the application to distinguish between command and message types. End points are identified by a single byte, where the values 0-199 are available for the application, and the values 200-255 are reserved for future expansions of the protocol.
 
 ## Data
+
 Commands, responses and messages pass  data which is a sequence of zero to 1024 bytes. These bytes are opaque to the protocol which treat them as a blob. It's up to the application to determine the semantic of these bytes and to encode and decode them as needed.
-
-
 
 ## Application Example
 
@@ -218,7 +224,3 @@ A: Asyncio may make simple programs more complicated but it allows for more resp
 A: This is a good idea, but we are not working on it as of May 2023. We would any recommendations or implementations of such a portable API.
 
 ---
-
-
-
-
