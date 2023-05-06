@@ -10,7 +10,7 @@ AS OF MAY 2023, THIS IS WORK IN PROGRESS, NOT READY YET FOR PUBLIC RELEASE.
 Related works:
 * Simple HDLC: <https://github.com/wuttem/simple-hdlc>
 * ArduHDLC: <https://github.com/jarkko-hautakorpi/Arduhdlc>
-* Firmata: <https://github.com/firmata/protocol/blob/master/protocol.md>
+* Firmata: <https://github.com/firmata/arduino>
 
 ## Protocol Description
 
