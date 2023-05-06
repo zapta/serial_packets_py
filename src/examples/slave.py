@@ -6,6 +6,8 @@ from __future__ import annotations
 # For using the local version of serial_packet.
 import sys
 
+# For using the local version of serial_packet. Comment out if 
+# using serial_packets package installed by pip.
 sys.path.insert(0, "../../src")
 
 import argparse
