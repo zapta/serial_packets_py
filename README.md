@@ -26,7 +26,7 @@ The Serial Packets protocol provides packet based point-to-point serial transpor
 
 ### Commands
 
-Commands are round-trip interactions where one node send a 'command' packet and the other node sends back 'response' packet that references the original command packet. Commands are useful to control a device and to retrieve information by polling the device using a RPC like 
+Commands are round-trip interactions where one node send a 'command' packet and the other node sends back 'response' packet that references the original command packet. Commands are useful to control a device and to retrieve information by polling the device using a RPC like
 API.
 
 The following tables lists the fields of command request and response  packets, before converting to wire representation as explained later:
@@ -57,6 +57,7 @@ The SerialPacketsClient class provides two methods for sending commands.
 *send_command_future(...)* for sending using a future that provides the response and *send_command_blocking(...)* which is a convenience method that blocks internally on the future.
 
 Future base command sending:
+
 ```python
 client = SerialPacketsClient("COM1", my_command_async_callback, my_message_async_callback,  my_event_async_callback)
 is_connected = await client.connect()
@@ -71,6 +72,7 @@ status, data = await future
 ```
 
 Blocking style command sending:
+
 ```python
 client = SerialPacketsClient("COM1", my_command_async_callback, my_message_async_callback, my_event_async_callback)
 is_connected = await client.connect()
@@ -121,8 +123,6 @@ Messages are a simpler case of a commands with no response. They are useful for 
 The *SerialPacketsClient* class provides a method for sending a command. The method is non blocking and merely queues the message for sending.
 two methods for sending commands.
 
-
-
 ```python
 client = SerialPacketsClient("COM1", my_command_async_callback my_event_async_callback)
 is_connected = await client.connect()
@@ -135,7 +135,7 @@ client.send_message(msg_endpoint, msg_data)
 
 #### Receiving a message
 
-Incoming messages are received via a callback function that is passed to the SerialPacketsClient when it's created. The callback is an async function that receives the target endpoint and the data of the message and returns no value. 
+Incoming messages are received via a callback function that is passed to the SerialPacketsClient when it's created. The callback is an async function that receives the target endpoint and the data of the message and returns no value.
 
 ```python
 async def my_message_async_callback(endpoint: int, data: bytearray) -> Tuple[int, bytearray]:
@@ -148,7 +148,7 @@ assert(is_connected)
 
 ## Events
 
-The SerialPacketsClient signals the application about certain events via an events callback that the use pass to it upon initialization. 
+The SerialPacketsClient signals the application about certain events via an events callback that the use pass to it upon initialization.
 
 ```python
 async def my_event_async_callback(event: PacketsEvent) -> None:
@@ -164,13 +164,12 @@ assert(is_connected)
 ```
 
 As of May 2023 only a couple of events are supported.  
-```
+
+```python
 class PacketsEventType(Enum):
     CONNECTED = 1
     DISCONNECTED = 2
 ```
-
-
 
 ## Wire representation
 
@@ -219,12 +218,16 @@ Commands, responses and messages pass  data which is a sequence of zero to 1024 
 
 The repository contains and example with two main programs that communicate between them via serial port. One program called 'master' periodically sends a command and waits for a response and the other one called 'slave' sends a message periodically. To run the example, use two USB/Serial adapters and connect the TX of the first to the RX of the second and vice versa. Also, make sure to connect the gwo grounds. Then run each of the two program, providing the respective port in the command line. Make sure to replace the serial port ids in the example below with the actual port id of your system.
 
+<https://github.com/zapta/serial_packets_py/tree/main/src/examples>
+
 Running the master:
+
 ```python
 python -u  master.py --port="COM21" 
 ```
 
 Running the slave (in another shell, or another computer):
+
 ```python
 python -u  slave.py --port="COM22" 
 ```
