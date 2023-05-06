@@ -47,23 +47,28 @@ class _SerialProtocol(asyncio.Protocol):
         self.__client: SerialPacketsClient = None
         self.__port: str = None
         self.__packet_decoder: PacketDecoder = None
+        self.__is_connected = False
 
     def set(self, client: SerialPacketsClient, port: str, packet_decoder: PacketDecoder):
         self.__client = client
         self.__port = port
         self.__packet_decoder = packet_decoder
 
+    def is_connected(self):
+        return self.__is_connected
+
     def connection_made(self, transport: BaseTransport):
-        self.__client._post_event(PacketsEvent(PacketsEventType.CONNECTED, logging.INFO))
-        # logger.info("Serial [%s] opened.", self.__port)
+        self.__is_connected = True
+        self.__client._post_event(
+            PacketsEvent(PacketsEventType.CONNECTED, f"Connected to {self.__port}"))
 
     def data_received(self, data: bytes):
         self.__packet_decoder._receive(data)
 
     def connection_lost(self, exc):
-        self.__client._post_event(PacketsEvent(PacketsEventType.DISCONNECTED, logging.WARN))
-
-        # logger.info("Serial [%s] closed.", self.__port)
+        self.__is_connected = False
+        self.__client._post_event(
+            PacketsEvent(PacketsEventType.DISCONNECTED, f"Disconnected from {self.__port}"))
 
     def pause_writing(self):
         logger.warn("Serial [%s] paused.", self.__port)
@@ -71,7 +76,6 @@ class _SerialProtocol(asyncio.Protocol):
 
     def resume_writing(self):
         logger.warn("Serial [%s] resumed.", self.__port)
-        # print('Writing resumed', flush=True)
 
 
 class SerialPacketsClient:
@@ -143,16 +147,27 @@ class SerialPacketsClient:
     def __str__(self) -> str:
         return f"{self.__port}@{self.__baudrate}"
 
+    def is_connected(self) -> bool:
+        """Test if the client is connected to the port."""
+        return self.__protocol and self.__protocol.is_connected()
+
     def _post_event(self, event: PacketsEvent) -> None:
-        logger.log(event.level, "Posted event: %s", event)
+        logger.debug("Posted event: %s", event)
         self.__work_queue.put_nowait(event)
 
-    async def connect(self):
-        """Connect to serial port."""
-        logger.info("Connecting to port [%s]", self.__port)
-        self.__transport, self.__protocol = await serial_asyncio.create_serial_connection(
-            asyncio.get_event_loop(), _SerialProtocol, self.__port, baudrate=self.__baudrate)
+    async def connect(self) -> bool:
+        """Connect to serial port. Returns True if connected to port."""
+        logger.debug("Connecting to port [%s]", self.__port)
+        try:
+            self.__transport, self.__protocol = await serial_asyncio.create_serial_connection(
+                asyncio.get_event_loop(), _SerialProtocol, self.__port, baudrate=self.__baudrate)
+        except Exception as e:
+            logger.error("%s", e)
+            if logging.DEBUG >= logger.getEffectiveLevel():
+              traceback.print_exception(e)
+            return False
         self.__protocol.set(self, self.__port, self.__packet_decoder)
+        return True
 
     def __on_decoded_packet(self, decoded_packet: DecodedCommandPacket | DecodedResponsePacket |
                             DecodedMessagePacket):
@@ -247,7 +262,7 @@ class SerialPacketsClient:
         if self.__event_async_callback is None:
             logger.debug("No event callback, dropping event: %s", packets_event)
         else:
-            logger.log(packets_event.level, "Callback with event %s", packets_event)
+            logger.debug("Callback with event %s", packets_event)
             await self.__event_async_callback(packets_event)
 
     async def send_command_blocking(self,
@@ -302,6 +317,11 @@ class SerialPacketsClient:
         assert (endpoint >= 0 and endpoint <= MAX_USER_ENDPOINT)
         assert (len(data) <= MAX_DATA_LEN)
         assert (timeout >= MIN_CMD_TIMEOUT and timeout <= MAX_CMD_TIMEOUT)
+        if not self.is_connected():
+            logger.error("Client not connected when trying to send a message")
+            future = asyncio.Future()
+            future.set_result((PacketStatus.NOT_CONNECTED.value, bytearray()))
+            return future
         # Allocate a 32 bit fresh command id. Wrap around are ok since
         # commands are short living.
         self.__command_id_counter = (self.__command_id_counter + 1) & 0xffffffff
@@ -332,6 +352,9 @@ class SerialPacketsClient:
             """
         assert (endpoint >= 0 and endpoint <= MAX_USER_ENDPOINT)
         assert (len(data) <= MAX_DATA_LEN)
+        if not self.is_connected():
+            logger.warn("Client not connected, ignoring message send")
+            return
         # Encode packet bytes
         packet = self.__packet_encoder.encode_message_packet(endpoint, data)
         logger.debug("TX message packet [%d]: %s", endpoint, packet.hex(sep=' '))

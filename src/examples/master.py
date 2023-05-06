@@ -15,7 +15,8 @@ from typing import Tuple, Optional
 from serial_packets.client import SerialPacketsClient
 from serial_packets.packets import PacketStatus, PacketsEvent, PacketsEventType
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO,
+                    format='%(relativeCreated)07d %(levelname)-7s %(filename)-10s: %(message)s')
 logger = logging.getLogger("master")
 
 parser = argparse.ArgumentParser()
@@ -42,10 +43,13 @@ async def async_main():
     assert (args.port is not None)
     client = SerialPacketsClient(args.port, command_async_callback, message_async_callback,
                                  event_async_callback)
-    await client.connect()
-    logger.info("Master connected")
     while True:
-        # Send a command every 500 ms.
+        # Connect if needed.
+        if not client.is_connected():
+            if not await client.connect():
+                await asyncio.sleep(2.0)
+                continue
+        # Here connected. Send a command every 500 ms.
         await asyncio.sleep(0.5)
         cmd_endpoint = 20
         cmd_data = bytearray([0x13, 0x00, 0x7D, 0x00, 0x7E, 0x00])

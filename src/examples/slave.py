@@ -15,8 +15,8 @@ from typing import Tuple, Optional
 from serial_packets.client import SerialPacketsClient
 from serial_packets.packets import PacketStatus, PacketsEvent, PacketsEventType
 
-# Set default logging level for the entire program.
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO,
+                    format='%(relativeCreated)07d %(levelname)-7s %(filename)-10s: %(message)s')
 logger = logging.getLogger("slave")
 
 parser = argparse.ArgumentParser()
@@ -51,9 +51,14 @@ async def async_main():
     assert (args.port is not None)
     client = SerialPacketsClient(args.port, command_async_callback, message_async_callback,
                                  event_async_callback)
-    await client.connect()
-    logger.info("Connected")
+    
     while True:
+        # Connect if needed.
+        if not client.is_connected():
+            if not await client.connect():
+                await asyncio.sleep(2.0)
+                continue
+        # Here connected to port. Send a message every second.
         await asyncio.sleep(1)
         endpoint = 30
         data =  bytearray([0x10, 0x20, 0x30])

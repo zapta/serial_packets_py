@@ -11,9 +11,10 @@ MAX_DATA_LEN = 1024
 # Endpoints 200-255 are reserved for future protocol expansion.
 MAX_USER_ENDPOINT = 199
 
-MIN_RX_WORKERS_COUNT=1
-MAX_RX_WORKER_COUNT=20
-DEFAULT_RX_WORKER_COUNT=5
+MIN_RX_WORKERS_COUNT = 1
+MAX_RX_WORKER_COUNT = 20
+DEFAULT_RX_WORKER_COUNT = 5
+
 
 class PacketsEventType(Enum):
     """Event type."""
@@ -22,14 +23,14 @@ class PacketsEventType(Enum):
 
 
 class PacketsEvent:
-    """Callback event"""
+    """Callback event that is passed to the user.."""
 
-    def __init__(self, event_type: PacketsEventType, level: int = logging.INFO):
-        self.event_type = event_type
-        self.level = level
+    def __init__(self, event_type: PacketsEventType, description: str):
+        self.event_type: PacketsEventType = event_type
+        self.description: str = description
 
     def __str__(self):
-        return self.event_type.name
+        return f"{self.event_type.name}: {self.description}"
 
 
 class PacketStatus(Enum):
@@ -43,6 +44,7 @@ class PacketStatus(Enum):
     INVALID_ARGUMENT = 4
     LENGTH_ERROR = 5
     OUT_OF_RANGE = 6
+    NOT_CONNECTED = 7
 
     # Users can start allocating error codes from
     # here to 255.

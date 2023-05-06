@@ -1,17 +1,13 @@
 
-format the log messages to be more readable.
-
-
------
-
-
 Doc, insert TOC  
 
 Clean documentation
 
-improve the detection of failed background tasks.
 
-Provide more information with the events.
+Update code snippets in the docs.
+
+-----
+
 
 Improve PYPI presence
 
