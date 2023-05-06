@@ -1,11 +1,17 @@
 
-Clean documentation
+Add a disconnect method.
 
-Update code snippets in the docs.
+Add a doc section for client life cycle (init, connect/use/disconnect/reconnect)
 
+add to the doc an example of byte stuffing and flagging.
 -----
 
+More testing.
+
+More graceful handling of errors?
+
 Improve PYPI presence
+
 
 Kill client's worker tasks when the client is client is finalized. 
 

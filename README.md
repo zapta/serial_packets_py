@@ -9,31 +9,33 @@ AS OF MAY 2023, THIS IS WORK IN PROGRESS, NOT READY YET FOR PUBLIC RELEASE.
 
 ## Protocol Description
 
-The Serial Packets protocol is packet based point-to-point serial transport for communication between devices. For example, it can be used for communication between an Arduino device and a PC, such that the PC controls the device and the device can send data back to the PC. The protocol is symmetrical such that both nodes have the same capabilities with no notion of master/slave at the protocol level.
+The Serial Packets protocol provides packet based point-to-point serial transport for communication between devices. For example, it can be used for communication between an Arduino device and a PC, where the PC controls the device and the device sends data in real time back to the PC. The protocol is symmetrical and both sides to the communication   have the same capabilities with no designation of master/slave at the transport level.
 
 ### Highlights
 
-* Packet oriented. Users don't need to parse a serial stream.
-* Efficient, with low per-packet overhead.
-* Symmetrical, both ends have the same capabilities.
-* Full duplex.
-* Supports endpoint addressing.
-* Supports one way messages and round trip command/response.
-* Packets are verified with CRC.
-* Automatic detection on next packet, in case of line errors, via HDLC stuffing.
-* Intuitive wire representation.
+* Protocol is packet oriented, saving the need to implement framing in the application.
+* The protocol is Efficient with low per-packet overhead, and requires minimal computation and memory.
+* The protocol is symmetrical, and both sides can initiate or response to interactions.
+* The protocol is full duplex, and works independently on each direction.
+* The protocol support endpoint addressing to simplify routing of messages within the application.
+* The protocol supports both one way and two way request/response interactions.
+* Each packet is verified with a 16 bits CRC.
+* The protocol uses the HDLC byte stuffing algorithm which allow to resync on next frame despite communication errors.
+* The wire representation is intuitive which simplifies debugging.
+* The protocol is connectionless and stateless, though application can implement the notion of connection and state at their layer..
 
 ### Commands
 
-Commands are round-trip interactions where one node send a 'command' packet to the other and receives back a 'response' packet that is associated with that specific command. Commands are useful to control a device and to retrieve information by polling the device.
+Commands are round-trip interactions where one node send a 'command' packet and the other node sends back 'response' packet that references the original command packet. Commands are useful to control a device and to retrieve information by polling the device using a RPC like 
+API.
 
-The following tables lists the parts of a command request and response  packets, before converting to wire representation (explained later):
+The following tables lists the fields of command request and response  packets, before converting to wire representation as explained later:
 
 #### Command packet
 
 | Field     | Size [bytes] | Source   | Description                                            |
 | :-------- | :----------- | :------- | :----------------------------------------------------- |
-| TYPE      | 1            | Auto     | The value 0x01                                         |
+| PACKET_TYPE      | 1            | Auto     | The value 0x01                                         |
 | CMD_ID    | 4            | Auto     | A unique command id for response matching. Big Endian. |
 | END_POINT | 1            | **User** | The target endpoint of this command.                   |
 | DATA      | 0 to 1024    | **User** | Command data.                                          |
@@ -43,7 +45,7 @@ The following tables lists the parts of a command request and response  packets,
 
 | Field  | Size [bytes] | Source   | Description                                 |
 | :----- | :----------- | :------- | :------------------------------------------ |
-| TYPE   | 1            | Auto     | The value 0x02                              |
+| PACKET_TYPE   | 1            | Auto     | The value 0x02                              |
 | CMD_ID | 4            | Auto     | The ID of the original command. Big Endian. |
 | STATUS | 1            | **User** | Response status.                            |
 | DATA   | 0 to 1024    | **User** | Response data.                              |
@@ -54,25 +56,26 @@ The following tables lists the parts of a command request and response  packets,
 The SerialPacketsClient class provides two methods for sending commands.
 *send_command_future(...)* for sending using a future that provides the response and *send_command_blocking(...)* which is a convenience method that blocks internally on the future.
 
-##### Future based API**
-
+Future base command sending:
 ```python
-client = SerialPacketsClient("COM1", my_command_async_callback my_event_async_callback)
-await client.connect()
-...
+client = SerialPacketsClient("COM1", my_command_async_callback, my_message_async_callback,  my_event_async_callback)
+is_connected = await client.connect()
+assert(is_connected)
+
 cmd_endpoint = 20
 cmd_data = bytearray([0x01, 0x02, 0x03])
 future =  client.send_command_future(cmd_endpoint, cmd_data, timeout=0.2)
-...
+
+# Sometime later
 status, data = await future
 ```
 
-##### Blocking API**
-
+Blocking style command sending:
 ```python
-client = SerialPacketsClient("COM1", my_command_async_callback my_event_async_callback)
-await client.connect()
-...
+client = SerialPacketsClient("COM1", my_command_async_callback, my_message_async_callback, my_event_async_callback)
+is_connected = await client.connect()
+assert(is_connected)
+
 cmd_endpoint = 20
 cmd_data = bytearray([0x01, 0x02, 0x03])
 rx_status, rx_data = await client.send_command_blocking(cmd_endpoint, cmd_data, timeout=0.2)
@@ -80,7 +83,7 @@ rx_status, rx_data = await client.send_command_blocking(cmd_endpoint, cmd_data, 
 
 #### Receiving a command
 
-Incoming commands are received via a single callback function that is passed to the SerialPacketsClient when it's created. The call back is an async function that receives the endpoint and data of the command and returns the status and data of the response. The client maintains a pool of asyncio tasks that serves incoming packets such it's possible to have  multiple commands processed in parallel. If the command is not handled, the callback should return an empty response with the status UNHANDLED.value.
+Incoming commands are received via a callback function that is passed to the SerialPacketsClient when it's created. The callback is an async function that receives the target endpoint and the data of the command and returns the status and data of the response. The client maintains a pool of asyncio workers tasks that serves incoming packets such it's processing one command doesn't block reception of new commands,and command execution can be performed in parallel. If the command is not handled, the callback function should return an empty response with the status UNHANDLED.value.
 
 ```python
 async def my_command_async_callback(endpoint: int, data: bytearray) -> Tuple[int, bytearray]:
@@ -89,40 +92,41 @@ async def my_command_async_callback(endpoint: int, data: bytearray) -> Tuple[int
         return handle_command_endpoint_20(data)
     # Add here handling of other end points.
     return (PacketStatus.UNHANDLED.value, bytearray())
-...
+
 def handle_command_endpoint_20(data: bytearray) -> Tuple[int, bytearray]:
     status, response_data = (PacketStatus.OK.value, bytearray([1, 2, 3, 4]))
     logger.info(f"Command response: [%d] %s", status, response_data.hex(sep=' '))
     return (status, response_data)
-...
-client = SerialPacketsClient(args.port, my_command_async_callback, my_event_async_callback)
-await client.connect()
+
+client = SerialPacketsClient(args.port, my_command_async_callback, my)message_async_callback, my_event_async_callback)
+is_connected = await client.connect()
+assert(is_connected)
 ```
 
 ### Messages
 
-Message are a simpler case of a commands with no response. They are useful for notifications such as a periodic data reporting, and have lower overhead than commands.
+Messages are a simpler case of a commands with no response. They are useful for periodic notifications, for example for data reporting, and have lower overhead than commands.
 
 #### Message packet
 
 | Field     | Size [bytes] | Source   | Description                          |
 | :-------- | :----------- | :------- | :----------------------------------- |
-| TYPE      | 1            | Auto     | The value 0x03                       |
+| PACKET_TYPE      | 1            | Auto     | The value 0x03                       |
 | END_POINT | 1            | **User** | The target endpoint of this command. |
 | DATA      | 0 to 1024    | **User** | Command data.                        |
 | CRC       | 2            | Auto     | Packet CRC. Big endian.              |
 
 #### Sending a message
 
-The SerialPacketsClient class provides two methods for sending commands.
-*send_command_future(...)* for sending using a future that provides the response and *send_command_blocking(...)* which is a convenience method that blocks internally on the future.
+The *SerialPacketsClient* class provides a method for sending a command. The method is non blocking and merely queues the message for sending.
+two methods for sending commands.
 
-**API**
-Sending a message is simpler than sending a command because it doesn't involves waiting and handling a response.
+
 
 ```python
 client = SerialPacketsClient("COM1", my_command_async_callback my_event_async_callback)
-await client.connect()
+is_connected = await client.connect()
+assert(is_connected)
 ...
 msg_endpoint = 20
 msg_data = bytearray([0x01, 0x02, 0x03])
@@ -131,14 +135,42 @@ client.send_message(msg_endpoint, msg_data)
 
 #### Receiving a message
 
-TBD
+Incoming messages are received via a callback function that is passed to the SerialPacketsClient when it's created. The callback is an async function that receives the target endpoint and the data of the message and returns no value. 
 
-**API**
-TBD
+```python
+async def my_message_async_callback(endpoint: int, data: bytearray) -> Tuple[int, bytearray]:
+    logger.info(f"Received message: [%d] %s", endpoint, data.hex(sep=' '))
+
+client = SerialPacketsClient(args.port, my_command_async_callback, my_message_async_callback, my_event_async_callback)
+is_connected = await client.connect()
+assert(is_connected)
+```
 
 ## Events
 
-TBD
+The SerialPacketsClient signals the application about certain events via an events callback that the use pass to it upon initialization. 
+
+```python
+async def my_event_async_callback(event: PacketsEvent) -> None:
+    logger.info("Event %s: %s", event.event_type(), event.description())
+    logger.info("%s event", event)
+
+client = SerialPacketsClient(args.port, my_command_async_callback, my_message_async_callback, my_event_async_callback)
+is_connected = await client.connect()
+assert(is_connected)
+```
+
+```python
+```
+
+As of May 2023 only a couple of events are supported.  
+```
+class PacketsEventType(Enum):
+    CONNECTED = 1
+    DISCONNECTED = 2
+```
+
+
 
 ## Wire representation
 
@@ -185,7 +217,17 @@ Commands, responses and messages pass  data which is a sequence of zero to 1024 
 
 ## Application Example
 
-TBD
+The repository contains and example with two main programs that communicate between them via serial port. One program called 'master' periodically sends a command and waits for a response and the other one called 'slave' sends a message periodically. To run the example, use two USB/Serial adapters and connect the TX of the first to the RX of the second and vice versa. Also, make sure to connect the gwo grounds. Then run each of the two program, providing the respective port in the command line. Make sure to replace the serial port ids in the example below with the actual port id of your system.
+
+Running the master:
+```python
+python -u  master.py --port="COM21" 
+```
+
+Running the slave (in another shell, or another computer):
+```python
+python -u  slave.py --port="COM22" 
+```
 
 ## FAQ
 
@@ -224,3 +266,7 @@ A: Asyncio may make simple programs more complicated but it allows for more resp
 A: This is a good idea, but we are not working on it as of May 2023. We would any recommendations or implementations of such a portable API.
 
 ---
+
+**Q**: Is there a serial sniffer for the Serial Packets protocol?
+
+A: Note at the moment, but if you will implement one, we would love to a reference it here. It can be implemented for example with a Python program or with an Arduino sketch.

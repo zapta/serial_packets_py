@@ -28,6 +28,13 @@ class PacketsEvent:
     def __init__(self, event_type: PacketsEventType, description: str):
         self.event_type: PacketsEventType = event_type
         self.description: str = description
+        
+    def event_type(self) -> PacketsEventType:
+      return self.__event_type   
+    
+    def description(self) ->str:
+      return self.__description 
+    
 
     def __str__(self):
         return f"{self.event_type.name}: {self.description}"
