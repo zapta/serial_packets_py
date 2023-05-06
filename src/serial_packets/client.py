@@ -83,9 +83,9 @@ class SerialPacketsClient:
     def __init__(self,
                  port: str,
                  command_async_callback: Optional(Callable[[int, bytearray],
-                                                           Tuple(int, bytearray)]),
-                 message_async_callback: Optional(Callable[[int, bytearray], None]),
-                 event_async_callback: Optional(Callable[[PacketsEvent], None]),
+                                                           Tuple(int, bytearray)]) = None,
+                 message_async_callback: Optional(Callable[[int, bytearray], None]) = None,
+                 event_async_callback: Optional(Callable[[PacketsEvent], None]) = None,
                  baudrate: int = 115200,
                  workers: int = DEFAULT_WORKERS_COUNT):
         """
@@ -96,15 +96,20 @@ class SerialPacketsClient:
         Args:
         * port: A string with dependent serial port to use. E.g. 'COM1'.
             
-        * command_async_callback: An async callback function to be called on incoming
+        * command_async_callback: An optional async callback function to be called on incoming
           command requests. Ignored if None. This is an async function that accepts 
           an endpoint (int [0-255]) and command data (bytearray, [0 to DATA_MAX_LEN]) and return
           status (int [0-255]) and response data (bytearray, [0 to DATA_MAX_LEN]).
           
-        * message_async_callback: An async callback function to be called on incoming
+        * message_async_callback: An optional async callback function to be called on incoming
           messages. Ignored if None. This is an async function that accepts 
           an endpoint (int [0-255]) and command data (bytearray, [0 to DATA_MAX_LEN]) 
           and does not return a value.
+          
+        * event_async_callback: An optional async callback function to be called on
+          on certain client events such as port connection and disconnection. 
+          Ignored if None. This is an async function that accepts 
+          a PacketEvent argument and returns no value.
                 
         * baudrate: And optional int port baud rate to set. Default is 115200.
         
@@ -164,7 +169,7 @@ class SerialPacketsClient:
         except Exception as e:
             logger.error("%s", e)
             if logging.DEBUG >= logger.getEffectiveLevel():
-              traceback.print_exception(e)
+                traceback.print_exception(e)
             return False
         self.__protocol.set(self, self.__port, self.__packet_decoder)
         return True
