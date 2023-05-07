@@ -237,12 +237,12 @@ class SerialPacketsClient:
             status, data = await self.__command_async_callback(decoded_cmd_packet.endpoint,
                                                                decoded_cmd_packet.data)
             if data.size() > MAX_DATA_LEN:
-                logger.error("Command response data too long (%d), failing command", data.size9))
+                logger.error("Command response data too long (%d), failing command", data.size9)
                 status, data = (PacketStatus.LENGTH_ERROR.value, PacketData())
         else:
             status, data = (PacketStatus.UNHANDLED.value, PacketData())
         response_packet = self.__packet_encoder.encode_response_packet(
-            decoded_cmd_packet.cmd_id, status, data._internal_bytes_buffer, self.__interval_tracker.track_packet())
+            decoded_cmd_packet.cmd_id, status, data._internal_bytes_buffer(), self.__interval_tracker.track_packet())
         self.__transport.write(response_packet)
 
     async def __handle_incoming_response_packet(self, decoded_rsp_packet: DecodedResponsePacket):
@@ -335,7 +335,7 @@ class SerialPacketsClient:
         cmd_id = self.__command_id_counter
         assert (not cmd_id in self.__tx_cmd_contexts)
         # Encode packet bytes
-        packet = self.__packet_encoder.encode_command_packet(cmd_id, endpoint, data._internal_bytes_buffer, self.__interval_tracker.track_packet())
+        packet = self.__packet_encoder.encode_command_packet(cmd_id, endpoint, data._internal_bytes_buffer(), self.__interval_tracker.track_packet())
         logger.debug("TX command packet [%d]: %s", endpoint, packet.hex(sep=' '))
         # Create command tx context
         expiration_time = time.time() + timeout
@@ -363,7 +363,7 @@ class SerialPacketsClient:
             logger.warn("Client not connected, ignoring message send")
             return
         # Encode packet bytes
-        packet = self.__packet_encoder.encode_message_packet(endpoint, data._internal_bytes_buffer, self.__interval_tracker.track_packet())
+        packet = self.__packet_encoder.encode_message_packet(endpoint, data._internal_bytes_buffer(), self.__interval_tracker.track_packet())
         logger.debug("TX message packet [%d]: %s", endpoint, packet.hex(sep=' '))
         # Start sending
         self.__transport.write(packet)

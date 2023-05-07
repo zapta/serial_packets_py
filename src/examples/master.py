@@ -58,9 +58,9 @@ async def async_main():
         await asyncio.sleep(0.5)
         endpoint = 20
         cmd_data = PacketData().add_uint8(200).add_uint32(1234)
-        logger.info("Sending command: [%d], %s", endpoint, cmd_data.hex_str)
+        logger.info("Sending command: [%d], %s", endpoint, cmd_data.hex_str())
         status, response_data = await client.send_command_blocking(endpoint, cmd_data, timeout=0.2)
-        logger.info(f"Command result: [%d], %s", status, response_data.hex_str)
+        logger.info(f"Command result: [%d], %s", status, response_data.hex_str())
 
 
 asyncio.run(async_main(), debug=True)

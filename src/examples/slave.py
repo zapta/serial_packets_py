@@ -27,7 +27,7 @@ args = parser.parse_args()
 
 
 async def command_async_callback(endpoint: int, data: PacketData) -> Tuple[int, PacketData]:
-    logger.info(f"Received command: [%d] %s", endpoint, cmd_data.hex())
+    logger.info(f"Received command: [%d] %s", endpoint, data.hex_str())
     # Handle commands sent to end point 20.
     if (endpoint == 20):
         # Parse incoming command
@@ -39,7 +39,7 @@ async def command_async_callback(endpoint: int, data: PacketData) -> Tuple[int, 
         # Return respose.
         status = PacketStatus.OK.value
         response_data = PacketData().add_uint16(3333).add_uint32(123456)
-        logger.info(f"Command response: [%d] %s", status, response_data.hex(sep=' '))
+        logger.info(f"Command response: [%d] %s", status, response_data.hex_str())
         return (status, response_data)
     # Add here handling of additional endpoints.
     return (PacketStatus.UNHANDLED.value, bytearray())
