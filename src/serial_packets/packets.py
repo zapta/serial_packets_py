@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import overload, Iterable
+from typing import Iterable
 import logging
 
 # Max size of data that is sent in a command request, command response,
@@ -61,23 +61,16 @@ class PacketStatus(Enum):
 class PacketData:
     """Packet data buffer, with methods to serialize/deserialize the data."""
 
-    @overload
     def __init__(self):
-        """ Constructs an empty PacketData."""
-        self.__data = bytearray()
-        self.__bytes_read = 0
-
-    @overload
-    def __init__(self, bytes: Iterable[int]):
         """ Constructs a PacketData with given intitial data."""
-        self.__data = bytearray(bytes)
+        self.__data =  bytearray()
         self.__bytes_read = 0
 
-    def hex_str(self)->str:
+    def hex_str(self) -> str:
         """Returns a string with a hex dump fo the bytes. Can be long."""
         return self.__data_bytes.hex(sep=' ')
 
-    def data_bytes(self) -> bytearray:
+    def bytes(self) -> bytearray:
         """Return a copy of the data bytes."""
         return self.__data.copy()
 
@@ -101,7 +94,7 @@ class PacketData:
     def bytes_availale_to_read(self) -> int:
         """Returns the number of bytes from the currennt reading location to the end of the data."""
         return len(self.__data) - self.__bytes_read
-    
+
     def all_read(self) -> bool:
         """Returns true if read location is past the last data byte."""
         return self.__bytes_read == len(self.__data)
@@ -115,25 +108,25 @@ class PacketData:
     def add_byte(self, val: int) -> PacketData:
         """Asserts that the value is in the range [0, 0xff] and appends it 
         to the data as a single byte."""
-        assert (val >= 0, val <= 0xff)
+        assert (val >= 0 and val <= 0xff)
         self.__data.append(val)
         return self
 
     def add_uint16(self, val: int) -> PacketData:
         """Asserts that the value is in the range [0, 0xff] and appends it 
         to the data as 2 bytes in big endian order."""
-        assert (val >= 0, val <= 0xff)
+        assert (val >= 0 and val <= 0xff)
         self.__data.extend(val.to_bytes(2, 'big'))
         return self
 
-    def add_uint32(self, val: int)->PacketData:
+    def add_uint32(self, val: int) -> PacketData:
         """Asserts that the value is in the range [0, 0xffff] and appends it 
         to the data as 4 bytes in big endian order."""
-        assert (val >= 0, val <= 0xffff)
+        assert (val >= 0 and val <= 0xffff)
         self.__data.extend(val.to_bytes(4, 'big'))
         return self
 
-    def add_bytes(self, bytes: bytearray)->PacketData:
+    def add_bytes(self, bytes: bytearray) -> PacketData:
         """Appends the given bytes to the data."""
         self.__data.extend(bytes)
         return self
