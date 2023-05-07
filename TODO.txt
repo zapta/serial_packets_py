@@ -1,13 +1,6 @@
 
 -----
 
-Add a disconnect method.
+* Add a disconnect method.
 
-More graceful handling of errors?
-
-Improve PYPI presence
-
-Kill client's worker tasks proactively when the client is client is finalized. 
-
-
-
+* Kill client's worker tasks proactively when the client is client is finalized. See https://stackoverflow.com/questions/76160467
