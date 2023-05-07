@@ -68,7 +68,7 @@ class PacketData:
 
     def hex_str(self) -> str:
         """Returns a string with a hex dump fo the bytes. Can be long."""
-        return self.__data_bytes.hex(sep=' ')
+        return self.__data.hex(sep=' ')
 
     def bytes(self) -> bytearray:
         """Return a copy of the data bytes."""
@@ -115,14 +115,14 @@ class PacketData:
     def add_uint16(self, val: int) -> PacketData:
         """Asserts that the value is in the range [0, 0xff] and appends it 
         to the data as 2 bytes in big endian order."""
-        assert (val >= 0 and val <= 0xff)
+        assert (val >= 0 and val <= 0xffff)
         self.__data.extend(val.to_bytes(2, 'big'))
         return self
 
     def add_uint32(self, val: int) -> PacketData:
         """Asserts that the value is in the range [0, 0xffff] and appends it 
         to the data as 4 bytes in big endian order."""
-        assert (val >= 0 and val <= 0xffff)
+        assert (val >= 0 and val <= 0xffffffff)
         self.__data.extend(val.to_bytes(4, 'big'))
         return self
 

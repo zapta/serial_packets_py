@@ -51,7 +51,7 @@ class PacketEncoder:
         assert (len(packet) <= MAX_PACKET_LEN)
         return packet
 
-    def __stuff_packet_bytes(self, packet: bytearray, insert_pre_flag: bool):
+    def __byte_stuffing(self, packet: bytearray, insert_pre_flag: bool):
         """Byte stuff the packet using HDLC format. Also adds packet flag(s)"""
         result = bytearray()
         if insert_pre_flag:
@@ -78,7 +78,7 @@ class PacketEncoder:
         assert (data.size() <= MAX_DATA_LEN)
         insert_pre_flag = self.__track_packet_interval()
         packet = self.__construct_command_packet(cmd_id, endpoint, data)
-        stuffed_packet = self.__stuff_packet_bytes(packet, insert_pre_flag)
+        stuffed_packet = self.__byte_stuffing(packet, insert_pre_flag)
         return stuffed_packet
 
     def encode_response_packet(self, cmd_id: int, status: int, data: PacketData):
@@ -86,7 +86,7 @@ class PacketEncoder:
         assert (data.size() <= MAX_DATA_LEN)
         insert_pre_flag = self.__track_packet_interval()
         packet = self.__construct_response_packet(cmd_id, status, data)
-        stuffed_packet = self.__stuff_packet_bytes(packet, insert_pre_flag)
+        stuffed_packet = self.__byte_stuffing(packet, insert_pre_flag)
         return stuffed_packet
       
     def encode_message_packet(self,  endpoint: int, data: PacketData):
@@ -94,6 +94,6 @@ class PacketEncoder:
         assert (data.size() <= MAX_DATA_LEN)
         insert_pre_flag = self.__track_packet_interval()
         packet = self.__construct_message_packet(endpoint, data)
-        stuffed_packet = self.__stuff_packet_bytes(packet, insert_pre_flag)
+        stuffed_packet = self.__byte_stuffing(packet, insert_pre_flag)
         return stuffed_packet  
  

@@ -1,4 +1,7 @@
 
+Add tests
+
+
 Add to the master/slave example sendign of 7E 7D bytes.
 
 Update the documentation with PacketData and serialization.
