@@ -12,7 +12,7 @@ from asyncio.transports import BaseTransport
 from ._packet_encoder import PacketEncoder
 from ._packet_decoder import PacketDecoder, DecodedCommandPacket, DecodedResponsePacket, DecodedMessagePacket
 from ._packets import PacketType, MAX_DATA_LEN, MIN_CMD_TIMEOUT, MAX_CMD_TIMEOUT, DEFAULT_CMD_TIMEOUT, MIN_WORKERS_COUNT, MAX_WORKERS_COUNT, DEFAULT_WORKERS_COUNT
-from .packets import PacketStatus, PacketsEvent, PacketsEventType, PacketsEvent, MAX_USER_ENDPOINT
+from .packets import PacketStatus, PacketsEvent, PacketsEventType, PacketsEvent, PacketData, MAX_USER_ENDPOINT
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class _TxCommandContext:
     def __str__(self):
         return f"cmd_context {self.__cmd_id}, {self.__expiration_time - time.time()} sec left"
 
-    def set_result(self, status: int, data: bytearray):
+    def set_command_result(self, status: int, data: PacketData):
         """Transfer the command result to its future."""
         self.__future.set_result((status, data))
 
@@ -82,9 +82,9 @@ class SerialPacketsClient:
 
     def __init__(self,
                  port: str,
-                 command_async_callback: Optional(Callable[[int, bytearray],
-                                                           Tuple(int, bytearray)]) = None,
-                 message_async_callback: Optional(Callable[[int, bytearray], None]) = None,
+                 command_async_callback: Optional(Callable[[int, PacketData],
+                                                           Tuple(int, PacketData)]) = None,
+                 message_async_callback: Optional(Callable[[int, PacketData], None]) = None,
                  event_async_callback: Optional(Callable[[PacketsEvent], None]) = None,
                  baudrate: int = 115200,
                  workers: int = DEFAULT_WORKERS_COUNT):
@@ -98,12 +98,12 @@ class SerialPacketsClient:
             
         * command_async_callback: An optional async callback function to be called on incoming
           command requests. Ignored if None. This is an async function that accepts 
-          an endpoint (int [0-255]) and command data (bytearray, [0 to DATA_MAX_LEN]) and return
-          status (int [0-255]) and response data (bytearray, [0 to DATA_MAX_LEN]).
+          an endpoint (int [0-255]) and command data (PacketData, [0 to DATA_MAX_LEN]) and return
+          status (int [0-255]) and response data (PacketData, [0 to DATA_MAX_LEN]).
           
         * message_async_callback: An optional async callback function to be called on incoming
           messages. Ignored if None. This is an async function that accepts 
-          an endpoint (int [0-255]) and command data (bytearray, [0 to DATA_MAX_LEN]) 
+          an endpoint (int [0-255]) and command data (PacketData, [0 to DATA_MAX_LEN]) 
           and does not return a value.
           
         * event_async_callback: An optional async callback function to be called on
@@ -206,7 +206,7 @@ class SerialPacketsClient:
             tx_context = self.__tx_cmd_contexts.get(cmd_id)
             if tx_context.is_expired():
                 logger.error("Command [%d] timeout", cmd_id)
-                tx_context.set_result(0xff, bytearray())
+                tx_context.set_command_result(0xff, PacketData())
                 self.__tx_cmd_contexts.pop(cmd_id)
 
     async def __worker_task_loop(self, task_name):
@@ -234,11 +234,11 @@ class SerialPacketsClient:
         if self.__command_async_callback:
             status, data = await self.__command_async_callback(decoded_cmd_packet.endpoint,
                                                                decoded_cmd_packet.data)
-            if len(data) > MAX_DATA_LEN:
-                logger.error("Command response data too long (%d), failing command", len(data))
-                status, data = (PacketStatus.LENGTH_ERROR.value, bytearray())
+            if data.size() > MAX_DATA_LEN:
+                logger.error("Command response data too long (%d), failing command", data.size9))
+                status, data = (PacketStatus.LENGTH_ERROR.value, PacketData())
         else:
-            status, data = (PacketStatus.UNHANDLED.value, bytearray())
+            status, data = (PacketStatus.UNHANDLED.value, PacketData())
         response_packet = self.__packet_encoder.encode_response_packet(
             decoded_cmd_packet.cmd_id, status, data)
         self.__transport.write(response_packet)
@@ -252,7 +252,7 @@ class SerialPacketsClient:
                          decoded_rsp_packet.cmd_id)
             # print(f"Response has no matching context {packet.cmd_id}, dropping", flush=True)
             return
-        tx_context.set_result(decoded_rsp_packet.status, decoded_rsp_packet.data)
+        tx_context.set_command_result(decoded_rsp_packet.status, decoded_rsp_packet.data)
 
     async def __handle_incoming_message_packet(self, decoded_msg_packet: DecodedMessagePacket):
         assert (isinstance(decoded_msg_packet, DecodedMessagePacket))
@@ -272,24 +272,24 @@ class SerialPacketsClient:
 
     async def send_command_blocking(self,
                                     endpoint: int,
-                                    data: bytearray,
-                                    timeout=DEFAULT_CMD_TIMEOUT) -> Tuple([int, bytearray]):
+                                    data: PacketData,
+                                    timeout=DEFAULT_CMD_TIMEOUT) -> Tuple([int, PacketData]):
         """ Sends a command and wait for result or timeout. This is a convenience
         method that calls send_command_future() and then waits on the future
         for command result.
 
         Args:
         * endpoint: The target endpoint (int [0-MAX_USER_ENDPOINT]) on the receiver side.  
-        * data: The command data (bytearray, [0, DATA_MAX_LEN]).
+        * data: The command data (PacketData, [0, DATA_MAX_LEN]).
         * timeout: Command timeout in secs (float MIN_CMD_TIMEOUT to MAX_CMD_TIMEOUT, default DEFAULT_CMD_TIMEOUT). 
         If a command response is not received within this period, the command
         is aborted with status PacketStatus.TIMEOUT.value and an empty 
-        data bytearray.
+        data PacketData.
         
         Returns:
         * status: The command returned status (int, [0-255]) or PacketStatus.TIMEOUT.value
         in case of a timeout.
-        * data: The command's response data (bytearray [0, DATA_MAX_LEN] or an empty bytearray
+        * data: The command's response data (PacketData [0, DATA_MAX_LEN] or an empty PacketData
         in case of a timeout.
         """
         future = self.send_command_future(endpoint, data, timeout=timeout)
@@ -298,34 +298,34 @@ class SerialPacketsClient:
 
     def send_command_future(self,
                             endpoint: int,
-                            data: bytearray,
-                            timeout=DEFAULT_CMD_TIMEOUT) -> Tuple([int, bytearray]):
+                            data: PacketData,
+                            timeout=DEFAULT_CMD_TIMEOUT) -> Tuple([int, PacketData]):
         """ Sends a command and return immediately without blocking. 
         
         Caller should wait on the returned future to receive the command
         response once available. The command response is a Tuple with 
         two values, the status code (int, [0-255]) and  response data
-        byte returned from the caller (bytearray [0, MAX_DATA_LEN]). Some status
+        byte returned from the caller (PacketData [0, MAX_DATA_LEN]). Some status
         code values are defined by PacketStatus enum.
 
         Args:
         * endpoint: The target endpoint (int [0-255]) on the receiver side.  
-        * data: The command's data (bytearray [0, DATA_MAX_LEN]).
+        * data: The command's data (PacketData [0, DATA_MAX_LEN]).
         * timeout: Command timeout in secs (float MIN_CMD_TIMEOUT to MAX_CMD_TIMEOUT, default DEFAULT_CMD_TIMEOUT). 
         If a command response is not received within this period, the command
         is aborted with status PacketStatus.TIMEOUT.value and an empty 
-        data bytearray.
+        data PacketData.
         
         Returns:
         * A future to wait on for command result. 
         """
         assert (endpoint >= 0 and endpoint <= MAX_USER_ENDPOINT)
-        assert (len(data) <= MAX_DATA_LEN)
+        assert (data.size() <= MAX_DATA_LEN)
         assert (timeout >= MIN_CMD_TIMEOUT and timeout <= MAX_CMD_TIMEOUT)
         if not self.is_connected():
             logger.error("Client not connected when trying to send a message")
             future = asyncio.Future()
-            future.set_result((PacketStatus.NOT_CONNECTED.value, bytearray()))
+            future.set_result((PacketStatus.NOT_CONNECTED.value, PacketData()))
             return future
         # Allocate a 32 bit fresh command id. Wrap around are ok since
         # commands are short living.
@@ -345,18 +345,18 @@ class SerialPacketsClient:
         # Future will be signaled on response or timeout.
         return future
 
-    def send_message(self, endpoint: int, data: bytearray) -> None:
+    def send_message(self, endpoint: int, data: PacketData) -> None:
         """ Sends a message. Returns immediately, before sending completed. 
 
             Args:
             * endpoint: The target endpoint (int [0-255]) on the receiver side.  
-            * data: The message's data (bytearray [0, DATA_MAX_LEN]).
+            * data: The message's data (PacketData [0, DATA_MAX_LEN]).
             
             Returns:
             * None.
             """
         assert (endpoint >= 0 and endpoint <= MAX_USER_ENDPOINT)
-        assert (len(data) <= MAX_DATA_LEN)
+        assert (data.size() <= MAX_DATA_LEN)
         if not self.is_connected():
             logger.warn("Client not connected, ignoring message send")
             return

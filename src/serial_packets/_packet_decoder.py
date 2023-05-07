@@ -6,70 +6,48 @@ from PyCRC.CRCCCITT import CRCCCITT
 from typing import Optional, Callable
 
 from ._packets import PacketType, PACKET_FLAG, PACKET_ESC, MIN_PACKET_LEN, MAX_PACKET_LEN
-from .packets import MAX_DATA_LEN
+from .packets import PacketData, MAX_DATA_LEN
 # from .packets import  PACKET_MAX_LEN
 
 logger = logging.getLogger(__name__)
 
 
-# class DecodedPacket:
-
-#     def __init__(self, cmd_id: int, type: PacketType, endpoint: Optional(int),
-#                  status: Optional(int), data: bytearray):
-#         self.cmd_id = cmd_id
-#         self.type = type
-#         self.endpoint = endpoint
-#         self.status = status
-#         self.data = data
-
-#     def __str__(self):
-#         return f"{self.cmd_id}, {self.endpoint}, {len(self.data)}"
-
-#     def dump(self, title="Decoded packet"):
-#         print(f"{title}", flush=True)
-#         print(f"  Cmd id   {self.cmd_id: 10d}", flush=True)
-#         print(f"  Type   {self.type.name}", flush=True)
-#         print(f"  Endpoint   {self.endpoint}", flush=True)
-#         print(f"  Status   {self.status}", flush=True)
-#         print(f"  Data: {self.data.hex(sep=' ')}", flush=True)
-
-
 class DecodedCommandPacket:
 
-    def __init__(self, cmd_id: int, endpoint: int, data: bytearray):
-        self.cmd_id = cmd_id
-        self.endpoint = endpoint
-        self.data = data
+    def __init__(self, cmd_id: int, endpoint: int, data: PacketData):
+        self.cmd_id: int = cmd_id
+        self.endpoint: int = endpoint
+        self.data: PacketData = data
 
     def __str__(self):
-        return f"Command packet: {self.cmd_id}, {self.endpoint}, {len(self.data)}"
+        return f"Command packet: {self.cmd_id}, {self.endpoint}, {self.data.size()}"
 
 
 class DecodedResponsePacket:
 
-    def __init__(self, cmd_id: int, status: int, data: bytearray):
-        self.cmd_id = cmd_id
-        self.status = status
-        self.data = data
+    def __init__(self, cmd_id: int, status: int, data: PacketData):
+        self.cmd_id: int = cmd_id
+        self.status: int = status
+        self.data: PacketData = data
 
     def __str__(self):
-        return f"Response packet: {self.cmd_id}, {self.endpoint}, {len(self.data)}"
+        return f"Response packet: {self.cmd_id}, {self.endpoint}, {self.data.size()}"
 
 
 class DecodedMessagePacket:
 
-    def __init__(self, endpoint: int, data: bytearray):
-        self.endpoint = endpoint
-        self.data = data
+    def __init__(self, endpoint: int, data: PacketData):
+        self.endpoint: int = endpoint
+        self.data: PacketData = data
 
     def __str__(self):
-        return f"Message packet: {self.endpoint}, {len(self.data)}"
-
+        return f"Message packet: {self.endpoint}, {self.data.size()}"
 
 
 class PacketDecoder:
 
-    def __init__(self, decoded_packet_callback: Callable[[DecodedPacket], None]):
+    def __init__(self, decoded_packet_callback: Callable[
+        [DecodedCommandPacket | DecodedResponsePacket | DecodedMessagePacket], None]):
         assert (decoded_packet_callback is not None)
         self.__crc_calc = CRCCCITT("FFFF")
         self.__packet_bfr = bytearray()
@@ -77,7 +55,6 @@ class PacketDecoder:
         self.__pending_escape = False
         self.__packet_bfr.clear()
         self.__decoded_packet_callback = decoded_packet_callback
-        # self.__packets_queue = asyncio.Queue()
 
     def __str__(self):
         return f"In_packet ={self.__in_packet}, pending_escape={self.__pending_escape}, len={len(self.__packet_bytes)}"
@@ -173,24 +150,23 @@ class PacketDecoder:
         if type_value == PacketType.COMMAND.value:
             cmd_id = int.from_bytes(rx_bfr[1:5], byteorder='big', signed=False)
             endpoint = rx_bfr[5]
-            data = rx_bfr[6:-2]
-            decoded_packet = DecodedCommandPacket(cmd_id,  endpoint,  data)
+            data = PacketData(rx_bfr[6:-2])
+            decoded_packet = DecodedCommandPacket(cmd_id, endpoint, data)
         elif type_value == PacketType.RESPONSE.value:
             cmd_id = int.from_bytes(rx_bfr[1:5], byteorder='big', signed=False)
             status = rx_bfr[5]
-            data = rx_bfr[6:-2]
-            decoded_packet = DecodedResponsePacket(cmd_id,  status, data)
+            data = PacketData(rx_bfr[6:-2])
+            decoded_packet = DecodedResponsePacket(cmd_id, status, data)
         elif type_value == PacketType.MESSAGE.value:
             endpoint = rx_bfr[1]
-            data = rx_bfr[2:-2]
-            decoded_packet = DecodedMessagePacket(endpoint,  data)
+            data = PacketData(rx_bfr[2:-2])
+            decoded_packet = DecodedMessagePacket(endpoint, data)
         else:
             logger.error("Invalid packet type %02x, dropping packet", type.value)
             return
 
-        if len(data) > MAX_DATA_LEN:
-            logger.error("Packet data too long (type=%d, len=%d), dropping", type_value,
-                         len(data))
+        if data.size() > MAX_DATA_LEN:
+            logger.error("Packet data too long (type=%d, len=%d), dropping", type_value, data.size())
             return
 
         # Inform the user about the new packet.
