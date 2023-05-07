@@ -7,6 +7,11 @@ AS OF MAY 2023, THIS IS WORK IN PROGRESS, NOT READY YET FOR PUBLIC RELEASE.
 * PYPI: <https://pypi.org/project/serial-packets/>
 * Github: <https://github.com/zapta/serial_packets_py>
 
+Related works:
+* Simple HDLC: <https://github.com/wuttem/simple-hdlc>
+* ArduHDLC: <https://github.com/jarkko-hautakorpi/Arduhdlc>
+* Firmata: <https://github.com/firmata/arduino>
+
 ## Protocol Description
 
 The Serial Packets protocol provides packet based point-to-point serial transport for communication between devices. For example, it can be used for communication between an Arduino device and a PC, where the PC controls the device and the device sends data in real time back to the PC. The protocol is symmetrical and both sides to the communication   have the same capabilities with no designation of master/slave at the transport level.
