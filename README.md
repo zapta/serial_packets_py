@@ -2,8 +2,6 @@
 
 Python implementations of the Serial Packets protocol.
 
-AS OF MAY 2023, THIS IS WORK IN PROGRESS, NOT READY YET FOR PUBLIC RELEASE.
-
 * PYPI: <https://pypi.org/project/serial-packets/>
 * Github: <https://github.com/zapta/serial_packets_py>
 
