@@ -1,28 +1,13 @@
 
-Add tests
-
-
-Add to the master/slave example sendign of 7E 7D bytes.
-
-Update the documentation with PacketData and serialization.
-
-Add a doc section for client life cycle (init, connect/use/disconnect/reconnect)
-
-add to the doc an example of byte stuffing and flagging.
-
-Change client to access stream instead of serial.
-
 -----
 
 Add a disconnect method.
-
-More testing.
 
 More graceful handling of errors?
 
 Improve PYPI presence
 
-Kill client's worker tasks proactivly when the client is client is finalized. 
+Kill client's worker tasks proactively when the client is client is finalized. 
 
 
 

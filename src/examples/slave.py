@@ -31,11 +31,11 @@ async def command_async_callback(endpoint: int, data: PacketData) -> Tuple[int, 
     # Handle commands sent to end point 20.
     if (endpoint == 20):
         # Parse incoming command
-        v1 = data.read_byte()
+        v1 = data.read_uint8()
         assert (v1 == 200)
         v2 = data.read_uint32()
         assert (v2 == 1234)
-        assert (data.all_read())
+        assert (data.all_read_ok())
         # Return respose.
         status = PacketStatus.OK.value
         response_data = PacketData().add_uint16(3333).add_uint32(123456)

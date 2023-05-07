@@ -36,7 +36,7 @@ async def message_async_callback(endpoint: int, data: PacketData) -> Tuple[int, 
     # Parse the message from the slave.
     v1 = data.read_uint32()
     assert (v1 == 12345678)
-    assert (data.all_read())
+    assert (data.all_read_ok())
 
 
 async def event_async_callback(event: PacketsEvent) -> None:
@@ -57,7 +57,7 @@ async def async_main():
         # Here connected. Send a command every 500 ms.
         await asyncio.sleep(0.5)
         endpoint = 20
-        cmd_data = PacketData().add_byte(200).add_uint32(1234)
+        cmd_data = PacketData().add_uint8(200).add_uint32(1234)
         logger.info("Sending command: [%d], %s", endpoint, cmd_data.hex_str)
         status, response_data = await client.send_command_blocking(endpoint, cmd_data, timeout=0.2)
         logger.info(f"Command result: [%d], %s", status, response_data.hex_str)

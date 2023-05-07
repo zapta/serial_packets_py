@@ -62,15 +62,16 @@ class PacketData:
     """Packet data buffer, with methods to serialize/deserialize the data."""
 
     def __init__(self):
-        """ Constructs a PacketData with given intitial data."""
-        self.__data =  bytearray()
-        self.__bytes_read = 0
+        """ Constructs a PacketData with given initial data."""
+        self.__data: bytearray = bytearray()
+        self.__bytes_read: int = 0
+        self.__read_error: bool = False
 
     def hex_str(self) -> str:
         """Returns a string with a hex dump fo the bytes. Can be long."""
         return self.__data.hex(sep=' ')
 
-    def bytes(self) -> bytearray:
+    def data_bytes(self) -> bytearray:
         """Return a copy of the data bytes."""
         return self.__data.copy()
 
@@ -86,26 +87,35 @@ class PacketData:
         """Clear all data bytes and reset read location."""
         self.__data.clear()
         self.__bytes_read = 0
+        self.__read_error = False
 
     def bytes_read(self) -> int:
         """The number of bytes read so far. This indicates current reading location."""
         return self.__bytes_read
 
-    def bytes_availale_to_read(self) -> int:
-        """Returns the number of bytes from the currennt reading location to the end of the data."""
+    def read_error(self) -> bool:
+        return self.__read_error
+
+    def bytes_left_to_read(self) -> int:
+        """Returns the number of bytes from the current reading location to the end of the data."""
         return len(self.__data) - self.__bytes_read
 
     def all_read(self) -> bool:
         """Returns true if read location is past the last data byte."""
         return self.__bytes_read == len(self.__data)
 
+    def all_read_ok(self) -> bool:
+        """Returns true if entire data were read with no read errors."""
+        return self.all_read() and not self.read_error()
+
     def reset_read_location(self):
-        """Set the reading location to the begining of the data."""
+        """Reset the read location to data start and clear read error flag."""
         self.__bytes_read = 0
+        self.__read_error = False
 
     # --- Adding data
 
-    def add_byte(self, val: int) -> PacketData:
+    def add_uint8(self, val: int) -> PacketData:
         """Asserts that the value is in the range [0, 0xff] and appends it 
         to the data as a single byte."""
         assert (val >= 0 and val <= 0xff)
@@ -133,11 +143,12 @@ class PacketData:
 
     #  --- Parsing data
 
-    def read_byte(self) -> int | None:
+    def read_uint8(self) -> int | None:
         """Returns the next byte and advance the reading location by one byte,
         or returns None if already at the end of the daata.
         """
-        if self.__bytes_read + 1 > len(self.__data):
+        if self.__read_error or self.__bytes_read + 1 > len(self.__data):
+            self.__read_error = True
             return None
         result = self.__data[self.__bytes_read]
         self.__bytes_read += 1
@@ -148,7 +159,8 @@ class PacketData:
         Returns the 16 bit numbmer and advances the reading location by 2 bytes,
         or returns None if insuffient number of bytes to read.
         """
-        if self.__bytes_read + 2 > len(self.__data):
+        if self.__read_error or self.__bytes_read + 2 > len(self.__data):
+            self.__read_error = True
             return None
         result = int.from_bytes(self.__data[self.__bytes_read:self.__bytes_read + 2],
                                 byteorder='big',
@@ -161,7 +173,8 @@ class PacketData:
         Returns the 32 bit numbmer and advances the reading location by 4 bytes,
         or returns None if insuffient number of bytes to read.
         """
-        if self.__bytes_read + 4 > len(self.__data):
+        if self.__read_error or self.__bytes_read + 4 > len(self.__data):
+            self.__read_error = True
             return None
         result = int.from_bytes(self.__data[self.__bytes_read:self.__bytes_read + 4],
                                 byteorder='big',
@@ -171,9 +184,10 @@ class PacketData:
 
     def read_bytes(self, n: int) -> bytearray | None:
         """Returns the next n bytes and advances the reading location,
-        or None if insuffient number of bytes."""
+        or None if insufficient number of bytes."""
         assert (n >= 0)
-        if self.__bytes_read + n > len(self.__data):
+        if self.__read_error or self.__bytes_read + n > len(self.__data):
+            self.__read_error = True
             return None
         result = self.__data[self.__bytes_read:self.__bytes_read + n]
         self.__bytes_read += n

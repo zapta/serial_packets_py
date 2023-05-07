@@ -14,27 +14,28 @@ Related works:
 
 ## Protocol Description
 
-The Serial Packets protocol provides packet based point-to-point serial transport for communication between devices. For example, it can be used for communication between an Arduino device and a PC, where the PC controls the device and the device sends data in real time back to the PC. The protocol is symmetrical and both sides to the communication   have the same capabilities with no designation of master/slave at the transport level.
+The Serial Packets protocol provides packet based point-to-point serial transport for communication between devices. For example, it can be used to connect an Arduino device to a PC, where the PC controls the device, and the device sends data in real time back to the PC. The protocol is fully symmetrical such that both sides to the communication have the same capabilities, with no designation of master/slave at the transport level.
 
 ### Highlights
 
-* Protocol is packet oriented, saving the need to implement framing in the application.
-* The protocol is Efficient with low per-packet overhead, and requires minimal computation and memory.
+* Protocol is packet oriented, saving the need to implement framing by the application.
+* The protocol is efficient with low per-packet overhead, and minimal memory and computation requirements.
 * The protocol is symmetrical, and both sides can initiate or response to interactions.
 * The protocol is full duplex, and works independently on each direction.
 * The protocol support endpoint addressing to simplify routing of messages within the application.
 * The protocol supports both one way and two way request/response interactions.
 * Each packet is verified with a 16 bits CRC.
-* The protocol uses the HDLC byte stuffing algorithm which allow to resync on next frame despite communication errors.
+* The protocol uses the HDLC byte stuffing algorithm which allow to resync on next frame despite line errors.
 * The wire representation is intuitive which simplifies debugging.
-* The protocol is connectionless and stateless, though application can implement the notion of connection and state at their layer..
+* The protocol is connectionless and stateless, though application can implement the notion of connection and state at their layer.
 
 ### Commands
 
-Commands are round-trip interactions where one node send a 'command' packet and the other node sends back 'response' packet that references the original command packet. Commands are useful to control a device and to retrieve information by polling the device using a RPC like
-API.
+Commands are round-trip interactions where one node send a 'command' packet receives as 'response' packet from the other node. Commands can be used for example the device and to retrieve information selected
+information.
 
-The following tables lists the fields of command request and response  packets, before converting to wire representation as explained later:
+
+The following tables lists the fields of command request and response  packets respectively. Note that this is not the exact wire representation since the packets are subject to flagging and byte stuffing as explained later.
 
 #### Command packet
 
@@ -68,12 +69,14 @@ client = SerialPacketsClient("COM1", my_command_async_callback, my_message_async
 is_connected = await client.connect()
 assert(is_connected)
 
-cmd_endpoint = 20
-cmd_data = bytearray([0x01, 0x02, 0x03])
-future =  client.send_command_future(cmd_endpoint, cmd_data, timeout=0.2)
+endpoint = 20
+cmd_data = PacketData()
+cmd_data.add_byte(0x01)
+cmd_data.add_uint16(0x0203)
+future =  client.send_command_future(endpoint, cmd_data, timeout=0.2)
 
 # Sometime later
-status, data = await future
+status, rsp_data = await future
 ```
 
 Blocking style command sending:
@@ -83,29 +86,34 @@ client = SerialPacketsClient("COM1", my_command_async_callback, my_message_async
 is_connected = await client.connect()
 assert(is_connected)
 
-cmd_endpoint = 20
-cmd_data = bytearray([0x01, 0x02, 0x03])
-rx_status, rx_data = await client.send_command_blocking(cmd_endpoint, cmd_data, timeout=0.2)
+endpoint = 20
+cmd_data = PacketData()
+cmd_data.add_byte(0x01)
+cmd_data.add_uint16(0x0203)
+rx_status, rx_data = await client.send_command_blocking(endpoint, cmd_data, timeout=0.2)
 ```
 
 #### Receiving a command
 
-Incoming commands are received via a callback function that is passed to the SerialPacketsClient when it's created. The callback is an async function that receives the target endpoint and the data of the command and returns the status and data of the response. The client maintains a pool of asyncio workers tasks that serves incoming packets such it's processing one command doesn't block reception of new commands,and command execution can be performed in parallel. If the command is not handled, the callback function should return an empty response with the status UNHANDLED.value.
+Incoming commands are received via an optional callback function that is passed to the SerialPacketsClient when it's created. The callback is an async function that receives the command's endpoint and data,  and returns the response's status and data. The client uses a pool of asyncio worker tasks that serves incoming packets, and therefore it's ok
+for the command handler to perform asyncio await operations as part of serving the command. If the command is not handled, the callback function should return the status UNHANDLED.value and empty data.
 
 ```python
-async def my_command_async_callback(endpoint: int, data: bytearray) -> Tuple[int, bytearray]:
-    logger.info(f"Received command: [%d] %s", endpoint, data.hex(sep=' '))
+async def command_async_callback(endpoint: int, data: PacketData) -> Tuple[int, PacketData]:
+    logger.info(f"Received command: [%d] %s", endpoint, data.hex_bytes())
     if (endpoint == 20):
-        return handle_command_endpoint_20(data)
-    # Add here handling of other end points.
+        v1 = data.read_byte()
+        v2 = data.read_uint16()
+        if not data.all_read_ok():
+          logger.info(f"Errors parsing command", status, response_data.hex(sep=' '))
+          return (PacketStatus.INVALID_ARGUMENT.value, PacketData())
+        response_data = PacketData()
+        response_dat.add_uint32(0x12345678)
+        logger.info(f"Command response: [%d] %s", PacketStatus.OK.value, response_data.hex(sep=' '))
+    # Add here handling of additional command end points.
     return (PacketStatus.UNHANDLED.value, bytearray())
 
-def handle_command_endpoint_20(data: bytearray) -> Tuple[int, bytearray]:
-    status, response_data = (PacketStatus.OK.value, bytearray([1, 2, 3, 4]))
-    logger.info(f"Command response: [%d] %s", status, response_data.hex(sep=' '))
-    return (status, response_data)
-
-client = SerialPacketsClient(args.port, my_command_async_callback, my)message_async_callback, my_event_async_callback)
+client = SerialPacketsClient(args.port, command_async_callback, message_async_callback, event_async_callback)
 is_connected = await client.connect()
 assert(is_connected)
 ```
@@ -129,13 +137,14 @@ The *SerialPacketsClient* class provides a method for sending a command. The met
 two methods for sending commands.
 
 ```python
-client = SerialPacketsClient("COM1", my_command_async_callback my_event_async_callback)
+client = SerialPacketsClient("COM1", command_async_callback, message_async_callback, event_async_callback)
 is_connected = await client.connect()
 assert(is_connected)
 ...
-msg_endpoint = 20
-msg_data = bytearray([0x01, 0x02, 0x03])
-client.send_message(msg_endpoint, msg_data)
+endpoint = 20
+data = PacketData()
+data.add_uint16(12345)
+client.send_message(endpoint, data)
 ```
 
 #### Receiving a message
@@ -143,8 +152,15 @@ client.send_message(msg_endpoint, msg_data)
 Incoming messages are received via a callback function that is passed to the SerialPacketsClient when it's created. The callback is an async function that receives the target endpoint and the data of the message and returns no value.
 
 ```python
-async def my_message_async_callback(endpoint: int, data: bytearray) -> Tuple[int, bytearray]:
+async def message_async_callback(endpoint: int, data: bytearray) -> Tuple[int, PacketData]:
     logger.info(f"Received message: [%d] %s", endpoint, data.hex(sep=' '))
+    if endpoint == 20:
+        v1 = data.read_uint16()
+        v2 = data.read_uint16()
+        if v1.read_all_ok():
+          logger.info(f"Message data: {v1} {v2}")
+    else:
+      logger.error(f"Unhandled message at endpoint {endpoint}")
 
 client = SerialPacketsClient(args.port, my_command_async_callback, my_message_async_callback, my_event_async_callback)
 is_connected = await client.connect()
@@ -156,11 +172,11 @@ assert(is_connected)
 The SerialPacketsClient signals the application about certain events via an events callback that the use pass to it upon initialization.
 
 ```python
-async def my_event_async_callback(event: PacketsEvent) -> None:
+async def event_async_callback(event: PacketsEvent) -> None:
     logger.info("Event %s: %s", event.event_type(), event.description())
     logger.info("%s event", event)
 
-client = SerialPacketsClient(args.port, my_command_async_callback, my_message_async_callback, my_event_async_callback)
+client = SerialPacketsClient(args.port, command_async_callback, message_async_callback, event_async_callback)
 is_connected = await client.connect()
 assert(is_connected)
 ```
@@ -174,6 +190,48 @@ As of May 2023 only a couple of events are supported.
 class PacketsEventType(Enum):
     CONNECTED = 1
     DISCONNECTED = 2
+```
+
+## PacketData class
+
+Packet data is represented by instances of the class PacketData which also provides a simple serialization/deserialization API.
+
+Serialization methods:
+```python
+add_uint8(v)   # Adds a single byte unsigned integer value
+add_uint16(v)  # Adds a two byte unsigned integer value
+add_uint32(v)  # Adds a four byte unsigned integer value
+add_bytes(v)   # Adds an arbitrary number of bytes
+
+```
+
+Deserialization methods: 
+```python
+v = read_uint8()    # Read a single byte unsigned integer value
+v = read_uint16(v)  # Read a two byte unsigned integer value
+v = read_uint32(v)  # Read a four byte unsigned integer value
+v = read_bytes(v)   # Read an arbitrary number of bytes
+```
+NOTE: If any of the read methods encounter an error, it returns None
+ and sets the read error flag of the PacketData. A read methods
+fails when there is and insufficient number of bytes left to read or
+when the read error flag is already set when it's called. 
+
+Deserialization control methods:
+```python
+bytes_read() -> int            # Returns number of bytes returned so far.
+bytes_left_to_read() -> int    # Returns the count of data bytes that have not been read yet.
+read_error() -> int            # Tests if read errors where encountered so far.
+all_read() -> bool             # Tests if all data were read.     
+all_read_ok() -> bool          # Tests if all data read with no errors.
+reset_read_location() -> None  # Resets read pointer and error flag.
+``` 
+Utility methods:
+```python
+hex_str() -> str    # Returns an hex representation fo the data, for debugging.
+data_bytes() -> bytearray  # Returns a copy of the data bytes.
+size() -> int  # Returns the number of data bytes.
+clear() -> None # Clear the data and reset the read location and error flag..
 ```
 
 ## Wire representation
@@ -192,6 +250,29 @@ To make the flag byte 0x7E unique in the serial stream, the Serial Packet uses '
 | 0x7E        | 0x7D, 0x5E | Escaped flag byte   |
 | 0x7D        | 0x7D, 0x5D | Escaped escape byte |
 | Other bytes | No change  | The common case     |
+
+
+Example of a command packet:
+```python
+
+Stuffed command packet:
+0x7e, 0x01, 0xff, 0x12, 0x34, 0x56, 0x20, 0xff, 
+0x00, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0x99, 0x09,
+0x8c, 0x7e
+
+Breakdown into parts:
+flag:         0x7e
+packet_type:  0x01
+cmd_id:       0xff, 0x12, 0x34, 0x56
+endpoint:     0x20
+data:         0xff, 0x00, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0x99
+crc:          0x09, 0x8c
+flag:         0x7e
+
+# In this examples, only the data part contains escaped bytes and its
+# unescaped version is:
+data:   0xff, 0x00, 0x7e, 0x22, 0x7d, 0x99
+```
 
 ## Status codes
 
@@ -266,12 +347,6 @@ A: Of course. Please feel free to contact us on github.
 **Q**: Why asyncio based implementation, doesn't it complicate things?
 
 A: Asyncio may make simple programs more complicated but it allows for more responsive programs with efficient parallel I/O.
-
----
-
-**Q**: Do you plan to provide also cross platform APIs for data serialization/deserialization?
-
-A: This is a good idea, but we are not working on it as of May 2023. We would any recommendations or implementations of such a portable API.
 
 ---
 
