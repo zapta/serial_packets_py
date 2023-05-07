@@ -123,6 +123,20 @@ class TestPacketEncoder(unittest.TestCase):
             packet,
             bytearray(
                 [0x03, 0x20, 0xff, 0x00, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0x99, 0xa7, 0x1e, 0x7e]))
+        
+    # def test_temp(self):
+    #     e = PacketEncoder()
+    #     data = bytearray([0x11, 0x7e, 0x22, 0x7d])
+    #     packet = e.encode_response_packet(0xff123456, 0x20, data, True)
+    #     print(f"Actual: 0x{packet.hex(sep='#').replace('#', ', 0x')}")
+    #     self.fail()
+    #     # self.assertEqual(
+    #     #     packet,
+    #     #     bytearray(
+    #     #         [0x7e, 0x03, 0x20, 0x11, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0xa9, 0xe0, 0x7e]))
+      
+        
+        
 
 
 if __name__ == '__main__':

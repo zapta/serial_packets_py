@@ -64,7 +64,7 @@ class _SerialProtocol(asyncio.Protocol):
             PacketsEvent(PacketsEventType.CONNECTED, f"Connected to {self.__port}"))
 
     def data_received(self, data: bytes):
-        self.__packet_decoder._receive(data)
+        self.__packet_decoder.receive(data)
 
     def connection_lost(self, exc):
         self.__is_connected = False

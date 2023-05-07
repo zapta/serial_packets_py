@@ -31,7 +31,7 @@ class DecodedResponsePacket:
         self.data: PacketData = data
 
     def __str__(self):
-        return f"Response packet: {self.cmd_id}, {self.endpoint}, {self.data.size()}"
+        return f"Response packet: {self.cmd_id}, {self.status}, {self.data.size()}"
 
 
 class DecodedMessagePacket:
@@ -53,7 +53,6 @@ class PacketDecoder:
         self.__packet_bfr = bytearray()
         self.__in_packet = False
         self.__pending_escape = False
-        self.__packet_bfr.clear()
         self.__decoded_packet_callback = decoded_packet_callback
 
     def __str__(self):
@@ -69,7 +68,7 @@ class PacketDecoder:
     #     """Blocking asyncio fetch of next pending packet."""
     #     return await self.__packets_queue.get()
 
-    def _receive(self, data: bytes):
+    def receive(self, data: bytes):
         for b in data:
             self.__receive_byte(b)
 
@@ -150,16 +149,16 @@ class PacketDecoder:
         if type_value == PacketType.COMMAND.value:
             cmd_id = int.from_bytes(rx_bfr[1:5], byteorder='big', signed=False)
             endpoint = rx_bfr[5]
-            data = PacketData(rx_bfr[6:-2])
+            data = PacketData().add_bytes(rx_bfr[6:-2])
             decoded_packet = DecodedCommandPacket(cmd_id, endpoint, data)
         elif type_value == PacketType.RESPONSE.value:
             cmd_id = int.from_bytes(rx_bfr[1:5], byteorder='big', signed=False)
             status = rx_bfr[5]
-            data = PacketData(rx_bfr[6:-2])
+            data = PacketData().add_bytes(rx_bfr[6:-2])
             decoded_packet = DecodedResponsePacket(cmd_id, status, data)
         elif type_value == PacketType.MESSAGE.value:
             endpoint = rx_bfr[1]
-            data = PacketData(rx_bfr[2:-2])
+            data = PacketData().add_bytes(rx_bfr[2:-2])
             decoded_packet = DecodedMessagePacket(endpoint, data)
         else:
             logger.error("Invalid packet type %02x, dropping packet", type.value)
