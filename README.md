@@ -8,6 +8,7 @@ AS OF MAY 2023, THIS IS WORK IN PROGRESS, NOT READY YET FOR PUBLIC RELEASE.
 * Github: <https://github.com/zapta/serial_packets_py>
 
 Related works:
+
 * Simple HDLC: <https://github.com/wuttem/simple-hdlc>
 * ArduHDLC: <https://github.com/jarkko-hautakorpi/Arduhdlc>
 * Firmata: <https://github.com/firmata/arduino>
@@ -29,11 +30,11 @@ The Serial Packets protocol provides packet based point-to-point serial transpor
 * The wire representation is intuitive which simplifies debugging.
 * The protocol is connectionless and stateless, though application can implement the notion of connection and state at their layer.
 
+
 ### Commands
 
 Commands are round-trip interactions where one node send a 'command' packet receives as 'response' packet from the other node. Commands can be used for example the device and to retrieve information selected
 information.
-
 
 The following tables lists the fields of command request and response  packets respectively. Note that this is not the exact wire representation since the packets are subject to flagging and byte stuffing as explained later.
 
@@ -71,7 +72,7 @@ assert(is_connected)
 
 endpoint = 20
 cmd_data = PacketData()
-cmd_data.add_byte(0x01)
+cmd_data.add_uint8(0x01)
 cmd_data.add_uint16(0x0203)
 future =  client.send_command_future(endpoint, cmd_data, timeout=0.2)
 
@@ -88,7 +89,7 @@ assert(is_connected)
 
 endpoint = 20
 cmd_data = PacketData()
-cmd_data.add_byte(0x01)
+cmd_data.add_uint8(0x01)
 cmd_data.add_uint16(0x0203)
 rx_status, rx_data = await client.send_command_blocking(endpoint, cmd_data, timeout=0.2)
 ```
@@ -102,7 +103,7 @@ for the command handler to perform asyncio await operations as part of serving t
 async def command_async_callback(endpoint: int, data: PacketData) -> Tuple[int, PacketData]:
     logger.info(f"Received command: [%d] %s", endpoint, data.hex_bytes())
     if (endpoint == 20):
-        v1 = data.read_byte()
+        v1 = data.read_uint8()
         v2 = data.read_uint16()
         if not data.all_read_ok():
           logger.info(f"Errors parsing command", status, response_data.hex(sep=' '))
@@ -197,6 +198,7 @@ class PacketsEventType(Enum):
 Packet data is represented by instances of the class PacketData which also provides a simple serialization/deserialization API.
 
 Serialization methods:
+
 ```python
 add_uint8(v)   # Adds a single byte unsigned integer value
 add_uint16(v)  # Adds a two byte unsigned integer value
@@ -205,19 +207,22 @@ add_bytes(v)   # Adds an arbitrary number of bytes
 
 ```
 
-Deserialization methods: 
+> ***NOTE:***  Variable length string and data can be encoded as a byte count followed by the byte themselves. .
+
+Deserialization methods:
+
 ```python
 v = read_uint8()    # Read a single byte unsigned integer value
 v = read_uint16(v)  # Read a two byte unsigned integer value
 v = read_uint32(v)  # Read a four byte unsigned integer value
 v = read_bytes(v)   # Read an arbitrary number of bytes
 ```
-NOTE: If any of the read methods encounter an error, it returns None
- and sets the read error flag of the PacketData. A read methods
-fails when there is and insufficient number of bytes left to read or
-when the read error flag is already set when it's called. 
+
+> ***NOTE:***  If any of the read methods encounter an error, it returns None and sets the internal read error flag of the PacketData, which
+will force all future read methods to fail as well..
 
 Deserialization control methods:
+
 ```python
 bytes_read() -> int            # Returns number of bytes returned so far.
 bytes_left_to_read() -> int    # Returns the count of data bytes that have not been read yet.
@@ -225,8 +230,10 @@ read_error() -> int            # Tests if read errors where encountered so far.
 all_read() -> bool             # Tests if all data were read.     
 all_read_ok() -> bool          # Tests if all data read with no errors.
 reset_read_location() -> None  # Resets read pointer and error flag.
-``` 
+```
+
 Utility methods:
+
 ```python
 hex_str() -> str    # Returns an hex representation fo the data, for debugging.
 data_bytes() -> bytearray  # Returns a copy of the data bytes.
@@ -251,8 +258,8 @@ To make the flag byte 0x7E unique in the serial stream, the Serial Packet uses '
 | 0x7D        | 0x7D, 0x5D | Escaped escape byte |
 | Other bytes | No change  | The common case     |
 
-
 Example of a command packet:
+
 ```python
 
 Stuffed command packet:
