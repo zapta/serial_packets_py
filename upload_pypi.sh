@@ -2,6 +2,8 @@
 #
 # Upload from ./dist to tpypi.Assumes this config in ~/.pypirc:
 #
+# Must first increment version in toml file, and run ./build.sh
+#
 # [pypi]
 #   username = __token__
 #   password = (paste here the test pypi token)
