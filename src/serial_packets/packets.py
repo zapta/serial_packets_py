@@ -67,9 +67,12 @@ class PacketData:
         self.__bytes_read: int = 0
         self.__read_error: bool = False
 
-    def hex_str(self) -> str:
+    def hex_str(self, max_bytes=None) -> str:
         """Returns a string with a hex dump fo the bytes. Can be long."""
-        return self.__data.hex(sep=' ')
+        if (max_bytes is None) or (self.size() <= max_bytes):
+            return  self.__data.hex(sep=' ')
+        prefix = self.__data[:max_bytes].hex(sep=" ")
+        return f"{prefix} ... ({self.size() - max_bytes} more)"
 
     def data_bytes(self) -> bytearray:
         """Return a copy of the data bytes."""
@@ -155,9 +158,9 @@ class PacketData:
         return result
 
     def read_uint16(self) -> int | None:
-        """Decods the next 2 bytes as a 16 bits unsigned big endian value.
-        Returns the 16 bit numbmer and advances the reading location by 2 bytes,
-        or returns None if insuffient number of bytes to read.
+        """Decodes the next 2 bytes as a 16 bits unsigned big endian value.
+        Returns the 16 bit number and advances the reading location by 2 bytes,
+        or returns None if insufficient number of bytes to read.
         """
         if self.__read_error or self.__bytes_read + 2 > len(self.__data):
             self.__read_error = True
@@ -167,11 +170,25 @@ class PacketData:
                                 signed=False)
         self.__bytes_read += 2
         return result
+      
+    def read_int24(self) -> int | None:
+        """Decodes the next 3 bytes as a 24 bits signed big endian value.
+        Returns the 24 bit number and advances the reading location by 3 bytes,
+        or returns None if insufficient number of bytes to read.
+        """
+        if self.__read_error or self.__bytes_read + 3 > len(self.__data):
+            self.__read_error = True
+            return None
+        result = int.from_bytes(self.__data[self.__bytes_read:self.__bytes_read + 3],
+                                byteorder='big',
+                                signed=True)
+        self.__bytes_read += 3
+        return result
 
     def read_uint32(self) -> int | None:
-        """Decods the next 4 bytes as am unsigned  32 bits big endian value.
-        Returns the 32 bit numbmer and advances the reading location by 4 bytes,
-        or returns None if insuffient number of bytes to read.
+        """Decodes the next 4 bytes as am unsigned  32 bits big endian value.
+        Returns the 32 bit number and advances the reading location by 4 bytes,
+        or returns None if insufficient number of bytes to read.
         """
         if self.__read_error or self.__bytes_read + 4 > len(self.__data):
             self.__read_error = True
