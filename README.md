@@ -1,5 +1,8 @@
 # Python Serial Packets
 
+**NOTE**: As of June 21 2023, the **wire format changed** to have distinct
+packet start and stop flag bytes.
+
 Python implementations of the Serial Packets protocol.
 
 * PYPI: <https://pypi.org/project/serial-packets/>
@@ -38,23 +41,23 @@ The following tables lists the fields of command request and response  packets r
 
 #### Command packet
 
-| Field     | Size [bytes] | Source   | Description                                            |
-| :-------- | :----------- | :------- | :----------------------------------------------------- |
-| PACKET_TYPE      | 1            | Auto     | The value 0x01                                         |
-| CMD_ID    | 4            | Auto     | A unique command id for response matching. Big Endian. |
-| END_POINT | 1            | **User** | The target endpoint of this command.                   |
-| DATA      | 0 to 1024    | **User** | Command data.                                          |
-| CRC       | 2            | Auto     | Packet CRC. Big endian.                                |
+| Field       | Size [bytes] | Source   | Description                                            |
+| :---------- | :----------- | :------- | :----------------------------------------------------- |
+| PACKET_TYPE | 1            | Auto     | The value 0x01                                         |
+| CMD_ID      | 4            | Auto     | A unique command id for response matching. Big Endian. |
+| END_POINT   | 1            | **User** | The target endpoint of this command.                   |
+| DATA        | 0 to 1024    | **User** | Command data.                                          |
+| CRC         | 2            | Auto     | Packet CRC. Big endian.                                |
 
 #### Response packet
 
-| Field  | Size [bytes] | Source   | Description                                 |
-| :----- | :----------- | :------- | :------------------------------------------ |
-| PACKET_TYPE   | 1            | Auto     | The value 0x02                              |
-| CMD_ID | 4            | Auto     | The ID of the original command. Big Endian. |
-| STATUS | 1            | **User** | Response status.                            |
-| DATA   | 0 to 1024    | **User** | Response data.                              |
-| CRC    | 2            | Auto     | Packet CRC. Big endian.                     |
+| Field       | Size [bytes] | Source   | Description                                 |
+| :---------- | :----------- | :------- | :------------------------------------------ |
+| PACKET_TYPE | 1            | Auto     | The value 0x02                              |
+| CMD_ID      | 4            | Auto     | The ID of the original command. Big Endian. |
+| STATUS      | 1            | **User** | Response status.                            |
+| DATA        | 0 to 1024    | **User** | Response data.                              |
+| CRC         | 2            | Auto     | Packet CRC. Big endian.                     |
 
 #### Sending a command
 
@@ -123,12 +126,12 @@ Messages are a simpler case of a commands with no response. They are useful for 
 
 #### Message packet
 
-| Field     | Size [bytes] | Source   | Description                          |
-| :-------- | :----------- | :------- | :----------------------------------- |
-| PACKET_TYPE      | 1            | Auto     | The value 0x03                       |
-| END_POINT | 1            | **User** | The target endpoint of this command. |
-| DATA      | 0 to 1024    | **User** | Command data.                        |
-| CRC       | 2            | Auto     | Packet CRC. Big endian.              |
+| Field       | Size [bytes] | Source   | Description                          |
+| :---------- | :----------- | :------- | :----------------------------------- |
+| PACKET_TYPE | 1            | Auto     | The value 0x03                       |
+| END_POINT   | 1            | **User** | The target endpoint of this command. |
+| DATA        | 0 to 1024    | **User** | Command data.                        |
+| CRC         | 2            | Auto     | Packet CRC. Big endian.              |
 
 #### Sending a message
 
@@ -241,19 +244,19 @@ clear() -> None # Clear the data and reset the read location and error flag..
 
 ## Wire representation
 
-### Packet flag byte
+### Packet start/stop flags
 
-The Serial Packets protocol uses packet flags similar to the HDLC protocol, with the special flag byte 0x7E inserted in the serial stream to mark packet ends. A flag byte is always inserted immediately after the
-last byte of each packet, and also optionally just before the first byte of packets, if the interval from the previous packet was longer than a certain time period.
+The Serial Packets protocol uses packet flags inspired from the HDLC protocol, with the special flag bytes 0X7C, 0x7E indicating the beginning and end of a packet, respectively.
 
 ### Byte stuffing
 
-To make the flag byte 0x7E unique in the serial stream, the Serial Packet uses 'byte stuffing' borrowed from the HDLC protocol. This allows the protocol to resync on next packet boundary, in case of line errors. This byte stuffing is done using the escape byte 0X7D
+To make the flag bytes 0X7C, 0x7E unique in the serial stream, the Serial Packet uses 'byte stuffing' borrowed from the HDLC protocol. This allows the protocol to resync on next packet boundary, in case of line errors. This byte stuffing is done using the escape byte 0X7D
 
 | Packet byte | Wire bytes | Comments            |
 | :---------- | :--------- | :------------------ |
-| 0x7E        | 0x7D, 0x5E | Escaped flag byte   |
+| 0x7C        | 0x7D, 0x5C | Escaped start flag  |
 | 0x7D        | 0x7D, 0x5D | Escaped escape byte |
+| 0x7E        | 0x7D, 0x5E | Escaped end flag    |
 | Other bytes | No change  | The common case     |
 
 Example of a command packet:
@@ -261,22 +264,22 @@ Example of a command packet:
 ```python
 
 Stuffed command packet:
-0x7e, 0x01, 0xff, 0x12, 0x34, 0x56, 0x20, 0xff, 
-0x00, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0x99, 0x09,
-0x8c, 0x7e
+ 0x7c, 0x01, 0xff, 0x12, 0x34, 0x56, 0x20, 0xff, 
+ 0x00, 0x7d, 0x5c, 0x11, 0x7d, 0x5e, 0x22, 0x7d, 
+ 0x5d, 0x99, 0x7a, 0xa7, 0x7e
 
 Breakdown into parts:
-flag:         0x7e
+start flag:   0x7c
 packet_type:  0x01
 cmd_id:       0xff, 0x12, 0x34, 0x56
 endpoint:     0x20
-data:         0xff, 0x00, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0x99
-crc:          0x09, 0x8c
+data:         0xff, 0x00, 0x7d, 0x5c, 0x11, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0x99
+crc:          0x7a, 0xa7
 flag:         0x7e
 
 # In this examples, only the data part contains escaped bytes and its
 # unescaped version is:
-data:   0xff, 0x00, 0x7e, 0x22, 0x7d, 0x99
+data:  0xff, 0x00, 0x7c, 0x11, 0x7e, 0x22, 0x7d, 0x99
 ```
 
 ## Status codes

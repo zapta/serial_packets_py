@@ -5,7 +5,7 @@ import asyncio
 from PyCRC.CRCCCITT import CRCCCITT
 from typing import Optional, Callable
 
-from ._packets import PacketType, PACKET_FLAG, PACKET_ESC, MIN_PACKET_LEN, MAX_PACKET_LEN
+from ._packets import PacketType, PACKET_START_FLAG, PACKET_END_FLAG, PACKET_ESC, MIN_PACKET_LEN, MAX_PACKET_LEN
 from .packets import PacketData, MAX_DATA_LEN
 # from .packets import  PACKET_MAX_LEN
 
@@ -58,9 +58,8 @@ class PacketDecoder:
     def __str__(self):
         return f"In_packet ={self.__in_packet}, pending_escape={self.__pending_escape}, len={len(self.__packet_bytes)}"
 
-    def __reset_packet(self):
-        # self.__state = state
-        self.__in_packet = False
+    def __reset_packet(self, in_packet: bool):
+        self.__in_packet = in_packet
         self.__pending_escape = False
         self.__packet_bfr.clear()
 
@@ -75,64 +74,71 @@ class PacketDecoder:
     def __receive_byte(self, b: int):
         # If not already in a packet, wait for next flag.
         if not self.__in_packet:
-            if b == PACKET_FLAG:
+            if b == PACKET_START_FLAG:
                 # Start collecting a packet.
-                self.__in_packet = True
-                self.__pending_escape = False
-                self.__packet_bfr.clear()
+                self.__reset_packet(True)
+            else:
+                # Here we drop bytes until next packet start. Should not
+                # happen in normal operation.
+                logger.error(f"Dropping byte {b:02x}")
+                pass
             return
 
-        # Here collecting packet bytes. Handle end of packet.
+        # Here collecting packet bytes.
         assert (self.__in_packet)
-        if b == PACKET_FLAG and not self.__pending_escape:
-            self.__process_packet()
-            self.__reset_packet()
-            # No need to wait for additional flag byte before next packet.
-            self.__in_packet = True
+
+        if b == PACKET_START_FLAG:
+            # Abort current packet and start a new one.
+            logger.error(f"Dropping partial packet of size {len(self.__packet_bfr)}.")
+            self.__reset_packet(True)
+            return
+
+        if b == PACKET_END_FLAG:
+            # Process current packet.
+            if self.__pending_escape:
+                logger.error("Packet has a pending escape, dropping.")
+            else:
+                self.__process_packet()
+            self.__reset_packet(False)
             return
 
         # Check for size overrun. At this point, we know that the packet will
-        # have at least one more additional byte.
+        # have at least one more additional byte, either normal or escaped.
         if len(self.__packet_bfr) >= MAX_PACKET_LEN:
             logger.error("Packet is too long (%d), dropping", len(self.__packet_bfr))
-            self.__reset_packet()
+            self.__reset_packet(False)
             return
 
-        # Handle escape byte
+        # Handle escape byte.
         if b == PACKET_ESC:
             if self.__pending_escape:
                 logger.error("Two consecutive escape chars, dropping packet")
-                self.__reset_packet()
+                self.__reset_packet(False)
             else:
                 self.__pending_escape = True
             return
 
-        # Handle escaped byte.
+        # Handle an escaped byte.
         if self.__pending_escape:
+            # Flip back for 5x to 7x.
             b1 = b ^ 0x20
-            if b1 != PACKET_FLAG and b1 != PACKET_ESC:
-                logger.error("Invalid escaped byte (%02x, %02x), dropping packet", b1, b)
-                self.__reset_packet()
+            if b1 != PACKET_START_FLAG and b1 != PACKET_END_FLAG and b1 != PACKET_ESC:
+                logger.error(f"Invalid escaped byte ({b1:02x}, {b:02x}), dropping packet")
+                self.__reset_packet(False)
             else:
                 self.__packet_bfr.append(b1)
                 self.__pending_escape = False
             return
 
-        # Handle normal byte
+        # Handle a normal byte
         self.__packet_bfr.append(b)
 
     def __process_packet(self):
         rx_bfr = self.__packet_bfr
 
-        # Ignore empty packets
-        n = len(rx_bfr)
-        if not n:
-            # Zero length packet can occur normally when we insert
-            # a pre packet flag.
-            return
-
         # Check for minimum length. A minimum we should
         # have a type byte and two CRC bytes.
+        n = len(rx_bfr)
         if n < MIN_PACKET_LEN:
             logger.error("Packet too short (%d), dropping", n)
             return
@@ -165,7 +171,8 @@ class PacketDecoder:
             return
 
         if data.size() > MAX_DATA_LEN:
-            logger.error("Packet data too long (type=%d, len=%d), dropping", type_value, data.size())
+            logger.error("Packet data too long (type=%d, len=%d), dropping", type_value,
+                         data.size())
             return
 
         # Inform the user about the new packet.

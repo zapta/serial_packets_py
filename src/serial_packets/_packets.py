@@ -3,13 +3,14 @@ from __future__ import annotations
 from enum import Enum
 from .packets import MAX_DATA_LEN
 
-# Flag and escape bytes per HDLC specification.
-PACKET_FLAG = 0x7E
+# Flag and escape bytes. Inspired by the HDLC specification.
+PACKET_START_FLAG = 0x7C
 PACKET_ESC = 0X7D
+PACKET_END_FLAG = 0x7E
 
 # Prefix a packet with a flag byte only if interval from previous
 # encoded packet is longer that this time in secs.
-PRE_FLAG_TIMEOUT = 1.0
+# PRE_FLAG_TIMEOUT = 1.0
 
 # Packet sizes in bytes, with zero data length, and before
 # byte stuffing, and flagging.

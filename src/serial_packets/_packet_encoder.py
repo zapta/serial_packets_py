@@ -4,7 +4,7 @@ import logging
 import time
 
 from PyCRC.CRCCCITT import CRCCCITT
-from ._packets import PacketType, PACKET_FLAG, PACKET_ESC, MAX_DATA_LEN, MAX_PACKET_LEN,  PRE_FLAG_TIMEOUT
+from ._packets import PacketType, PACKET_START_FLAG, PACKET_END_FLAG, PACKET_ESC, MAX_DATA_LEN, MAX_PACKET_LEN
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class PacketEncoder:
         packet.extend(crc.to_bytes(2, 'big'))
         assert (len(packet) <= MAX_PACKET_LEN)
         return packet
-      
+
     def __construct_message_packet(self, endpoint: int, data: bytearray):
         """Constructs a message packet, before byte stuffing"""
         packet = bytearray()
@@ -50,46 +50,36 @@ class PacketEncoder:
         assert (len(packet) <= MAX_PACKET_LEN)
         return packet
 
-    def __byte_stuffing(self, packet: bytearray, insert_pre_flag: bool):
+    def __byte_stuffing(self, packet: bytearray):
         """Byte stuff the packet using HDLC format. Also adds packet flag(s)"""
         result = bytearray()
-        if insert_pre_flag:
-            result.append(PACKET_FLAG)
+        result.append(PACKET_START_FLAG)
         for byte in packet:
-            if byte == PACKET_FLAG or byte == PACKET_ESC:
+            if byte == PACKET_START_FLAG or byte == PACKET_END_FLAG or byte == PACKET_ESC:
                 result.append(PACKET_ESC)
                 result.append(byte ^ 0x20)
             else:
                 result.append(byte)
-        result.append(PACKET_FLAG)
+        result.append(PACKET_END_FLAG)
         return result
 
-    # def __track_packet_interval(self):
-    #     last_packet_time = self.__last_packet_time
-    #     self.__last_packet_time = time.time()
-    #     elapsed = self.__last_packet_time - last_packet_time
-    #     # We insert a pre packet flag only if the packets are sparse.
-    #     insert_pre_flag = elapsed > PRE_FLAG_TIMEOUT
-    #     return insert_pre_flag
-
-    def encode_command_packet(self, cmd_id: int, endpoint: int, data: bytearray, insert_pre_flag: bool):
+    def encode_command_packet(self, cmd_id: int, endpoint: int, data: bytearray):
         """Returns the command packet in wire format"""
         assert (len(data) <= MAX_DATA_LEN)
         packet = self.__construct_command_packet(cmd_id, endpoint, data)
-        stuffed_packet = self.__byte_stuffing(packet, insert_pre_flag)
+        stuffed_packet = self.__byte_stuffing(packet)
         return stuffed_packet
 
-    def encode_response_packet(self, cmd_id: int, status: int, data: bytearray, insert_pre_flag: bool):
+    def encode_response_packet(self, cmd_id: int, status: int, data: bytearray):
         """Returns the packet in wire format."""
         assert (len(data) <= MAX_DATA_LEN)
         packet = self.__construct_response_packet(cmd_id, status, data)
-        stuffed_packet = self.__byte_stuffing(packet, insert_pre_flag)
+        stuffed_packet = self.__byte_stuffing(packet)
         return stuffed_packet
-      
-    def encode_message_packet(self,  endpoint: int, data: bytearray, insert_pre_flag: bool):
+
+    def encode_message_packet(self, endpoint: int, data: bytearray):
         """Returns the message packet in wire format"""
         assert (len(data) <= MAX_DATA_LEN)
         packet = self.__construct_message_packet(endpoint, data)
-        stuffed_packet = self.__byte_stuffing(packet, insert_pre_flag)
-        return stuffed_packet  
- 
+        stuffed_packet = self.__byte_stuffing(packet)
+        return stuffed_packet

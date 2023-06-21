@@ -11,8 +11,8 @@ from typing import Optional, Tuple, Dict, Callable
 from asyncio.transports import BaseTransport
 from ._packet_encoder import PacketEncoder
 from ._packet_decoder import PacketDecoder, DecodedCommandPacket, DecodedResponsePacket, DecodedMessagePacket
-from ._packets import PacketType, MAX_DATA_LEN, MIN_CMD_TIMEOUT, MAX_CMD_TIMEOUT, DEFAULT_CMD_TIMEOUT, MIN_WORKERS_COUNT, MAX_WORKERS_COUNT, DEFAULT_WORKERS_COUNT, PRE_FLAG_TIMEOUT
-from ._interval_tracker import IntervalTracker
+from ._packets import PacketType, MAX_DATA_LEN, MIN_CMD_TIMEOUT, MAX_CMD_TIMEOUT, DEFAULT_CMD_TIMEOUT, MIN_WORKERS_COUNT, MAX_WORKERS_COUNT, DEFAULT_WORKERS_COUNT
+# from ._interval_tracker import IntervalTracker
 from .packets import PacketStatus, PacketsEvent, PacketsEventType, PacketsEvent, PacketData, MAX_USER_ENDPOINT
 
 logger = logging.getLogger(__name__)
@@ -133,7 +133,7 @@ class SerialPacketsClient:
         self.__packet_encoder = PacketEncoder()
         self.__packet_decoder = PacketDecoder(self.__on_decoded_packet)
         self.__command_id_counter = 0
-        self.__interval_tracker = IntervalTracker(PRE_FLAG_TIMEOUT)
+        # self.__interval_tracker = IntervalTracker(PRE_FLAG_TIMEOUT)
         self.__tx_cmd_contexts: Dict[int, _TxCommandContext] = {}
         # Work items types:
         # * PacketsEvent: call user's event handler.
@@ -242,7 +242,7 @@ class SerialPacketsClient:
         else:
             status, data = (PacketStatus.UNHANDLED.value, PacketData())
         response_packet = self.__packet_encoder.encode_response_packet(
-            decoded_cmd_packet.cmd_id, status, data._internal_bytes_buffer(), self.__interval_tracker.track_packet())
+            decoded_cmd_packet.cmd_id, status, data._internal_bytes_buffer())
         self.__transport.write(response_packet)
 
     async def __handle_incoming_response_packet(self, decoded_rsp_packet: DecodedResponsePacket):
@@ -335,7 +335,7 @@ class SerialPacketsClient:
         cmd_id = self.__command_id_counter
         assert (not cmd_id in self.__tx_cmd_contexts)
         # Encode packet bytes
-        packet = self.__packet_encoder.encode_command_packet(cmd_id, endpoint, data._internal_bytes_buffer(), self.__interval_tracker.track_packet())
+        packet = self.__packet_encoder.encode_command_packet(cmd_id, endpoint, data._internal_bytes_buffer())
         logger.debug("TX command packet [%d]: %s", endpoint, packet.hex(sep=' '))
         # Create command tx context
         expiration_time = time.time() + timeout
@@ -363,7 +363,7 @@ class SerialPacketsClient:
             logger.warn("Client not connected, ignoring message send")
             return
         # Encode packet bytes
-        packet = self.__packet_encoder.encode_message_packet(endpoint, data._internal_bytes_buffer(), self.__interval_tracker.track_packet())
+        packet = self.__packet_encoder.encode_message_packet(endpoint, data._internal_bytes_buffer())
         logger.debug("TX message packet [%d]: %s", endpoint, packet.hex(sep=' '))
         # Start sending
         self.__transport.write(packet)
