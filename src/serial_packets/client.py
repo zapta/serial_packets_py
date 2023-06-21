@@ -208,7 +208,7 @@ class SerialPacketsClient:
             tx_context = self.__tx_cmd_contexts.get(cmd_id)
             if tx_context.is_expired():
                 logger.error("Command [%d] timeout", cmd_id)
-                tx_context.set_command_result(0xff, PacketData())
+                tx_context.set_command_result(PacketStatus.TIMEOUT.value, PacketData())
                 self.__tx_cmd_contexts.pop(cmd_id)
 
     async def __worker_task_loop(self, task_name):
