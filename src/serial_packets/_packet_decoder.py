@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import asyncio
 from PyCRC.CRCCCITT import CRCCCITT
-from typing import Optional, Callable
+from typing import Optional
 
 from ._packets import PacketType, PACKET_START_FLAG, PACKET_END_FLAG, PACKET_ESC, MIN_PACKET_LEN, MAX_PACKET_LEN
 from .packets import PacketData, MAX_DATA_LEN
@@ -46,14 +46,13 @@ class DecodedMessagePacket:
 
 class PacketDecoder:
 
-    def __init__(self, decoded_packet_callback: Callable[
-        [DecodedCommandPacket | DecodedResponsePacket | DecodedMessagePacket], None]):
-        assert (decoded_packet_callback is not None)
+    def __init__(self):
+        # assert (decoded_packet_callback is not None)
         self.__crc_calc = CRCCCITT("FFFF")
         self.__packet_bfr = bytearray()
         self.__in_packet = False
         self.__pending_escape = False
-        self.__decoded_packet_callback = decoded_packet_callback
+        # self.__decoded_packet_callback = decoded_packet_callback
 
     def __str__(self):
         return f"In_packet ={self.__in_packet}, pending_escape={self.__pending_escape}, len={len(self.__packet_bytes)}"
@@ -67,11 +66,15 @@ class PacketDecoder:
     #     """Blocking asyncio fetch of next pending packet."""
     #     return await self.__packets_queue.get()
 
-    def receive(self, data: bytes):
-        for b in data:
-            self.__receive_byte(b)
+    # def receive(self, data: bytes):
+    #     for b in data:
+    #         self.__receive_byte(b)
 
-    def __receive_byte(self, b: int):
+    def receive_byte(
+        self, b: int
+    ) -> Optional(DecodedCommandPacket | DecodedResponsePacket
+                  | DecodedMessagePacket):
+        """ Returns a decoded packet or None."""
         # If not already in a packet, wait for next flag.
         if not self.__in_packet:
             if b == PACKET_START_FLAG:
@@ -82,32 +85,36 @@ class PacketDecoder:
                 # happen in normal operation.
                 logger.error(f"Dropping byte {b:02x}")
                 pass
-            return
+            return None
 
         # Here collecting packet bytes.
         assert (self.__in_packet)
 
         if b == PACKET_START_FLAG:
             # Abort current packet and start a new one.
-            logger.error(f"Dropping partial packet of size {len(self.__packet_bfr)}.")
+            logger.error(
+                f"Dropping partial packet of size {len(self.__packet_bfr)}.")
             self.__reset_packet(True)
-            return
+            return None
 
         if b == PACKET_END_FLAG:
             # Process current packet.
             if self.__pending_escape:
                 logger.error("Packet has a pending escape, dropping.")
+                decoded_packet = None
             else:
-                self.__process_packet()
+                # Returns None or a packet.
+                decoded_packet = self.__process_packet()
             self.__reset_packet(False)
-            return
+            return decoded_packet
 
         # Check for size overrun. At this point, we know that the packet will
         # have at least one more additional byte, either normal or escaped.
         if len(self.__packet_bfr) >= MAX_PACKET_LEN:
-            logger.error("Packet is too long (%d), dropping", len(self.__packet_bfr))
+            logger.error("Packet is too long (%d), dropping",
+                         len(self.__packet_bfr))
             self.__reset_packet(False)
-            return
+            return None
 
         # Handle escape byte.
         if b == PACKET_ESC:
@@ -116,24 +123,27 @@ class PacketDecoder:
                 self.__reset_packet(False)
             else:
                 self.__pending_escape = True
-            return
+            return None
 
         # Handle an escaped byte.
         if self.__pending_escape:
             # Flip back for 5x to 7x.
             b1 = b ^ 0x20
             if b1 != PACKET_START_FLAG and b1 != PACKET_END_FLAG and b1 != PACKET_ESC:
-                logger.error(f"Invalid escaped byte ({b1:02x}, {b:02x}), dropping packet")
+                logger.error(
+                    f"Invalid escaped byte ({b1:02x}, {b:02x}), dropping packet"
+                )
                 self.__reset_packet(False)
             else:
                 self.__packet_bfr.append(b1)
                 self.__pending_escape = False
-            return
+            return None
 
         # Handle a normal byte
         self.__packet_bfr.append(b)
 
     def __process_packet(self):
+        """Returns a packet or None."""
         rx_bfr = self.__packet_bfr
 
         # Check for minimum length. A minimum we should
@@ -141,14 +151,15 @@ class PacketDecoder:
         n = len(rx_bfr)
         if n < MIN_PACKET_LEN:
             logger.error("Packet too short (%d), dropping", n)
-            return
+            return None
 
         # Check CRC
         packet_crc = int.from_bytes(rx_bfr[-2:], byteorder='big', signed=False)
         computed_crc = self.__crc_calc.calculate(bytes(rx_bfr[:-2]))
         if computed_crc != packet_crc:
-            logger.error("Packet CRC error %04x vs %04x, dropping", packet_crc, computed_crc)
-            return
+            logger.error("Packet CRC error %04x vs %04x, dropping", packet_crc,
+                         computed_crc)
+            return None
 
         # Construct decoded packet
         type_value = rx_bfr[0]
@@ -167,15 +178,17 @@ class PacketDecoder:
             data = PacketData().add_bytes(rx_bfr[2:-2])
             decoded_packet = DecodedMessagePacket(endpoint, data)
         else:
-            logger.error("Invalid packet type %02x, dropping packet", type.value)
-            return
+            logger.error("Invalid packet type %02x, dropping packet",
+                         type.value)
+            return None
 
         if data.size() > MAX_DATA_LEN:
-            logger.error("Packet data too long (type=%d, len=%d), dropping", type_value,
-                         data.size())
-            return
+            logger.error("Packet data too long (type=%d, len=%d), dropping",
+                         type_value, data.size())
+            return None
 
         # Inform the user about the new packet.
-        self.__decoded_packet_callback(decoded_packet)
+        # self.__decoded_packet_callback(decoded_packet)
+        return decoded_packet
 
         # self.__packets_queue.put_nowait(decoded_packet)

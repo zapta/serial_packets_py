@@ -48,12 +48,14 @@ class _SerialProtocol(asyncio.Protocol):
         self.__client: SerialPacketsClient = None
         self.__port: str = None
         self.__packet_decoder: PacketDecoder = None
+        self.__work_queue: asyncio.Queue = None
         self.__is_connected = False
 
-    def set(self, client: SerialPacketsClient, port: str, packet_decoder: PacketDecoder):
+    def set(self, client: SerialPacketsClient, port: str, packet_decoder: PacketDecoder, work_queue: asyncio.Queue):
         self.__client = client
         self.__port = port
         self.__packet_decoder = packet_decoder
+        self.__work_queue = work_queue
 
     def is_connected(self):
         return self.__is_connected
@@ -64,7 +66,11 @@ class _SerialProtocol(asyncio.Protocol):
             PacketsEvent(PacketsEventType.CONNECTED, f"Connected to {self.__port}"))
 
     def data_received(self, data: bytes):
-        self.__packet_decoder.receive(data)
+        for b in data:
+          decoded_packet =  self.__packet_decoder.receive_byte(b)
+          if decoded_packet:
+            logger.debug("Queuing incoming packet of type [%s.]", type(decoded_packet).__name__)
+            self.__work_queue.put_nowait(decoded_packet)
 
     def connection_lost(self, exc):
         self.__is_connected = False
@@ -131,7 +137,7 @@ class SerialPacketsClient:
         self.__transport = None
         self.__protocol = None
         self.__packet_encoder = PacketEncoder()
-        self.__packet_decoder = PacketDecoder(self.__on_decoded_packet)
+        self.__packet_decoder = PacketDecoder()
         self.__command_id_counter = 0
         # self.__interval_tracker = IntervalTracker(PRE_FLAG_TIMEOUT)
         self.__tx_cmd_contexts: Dict[int, _TxCommandContext] = {}
@@ -173,14 +179,14 @@ class SerialPacketsClient:
             if logging.DEBUG >= logger.getEffectiveLevel():
                 traceback.print_exception(e)
             return False
-        self.__protocol.set(self, self.__port, self.__packet_decoder)
+        self.__protocol.set(self, self.__port, self.__packet_decoder, self.__work_queue)
         return True
 
-    def __on_decoded_packet(self, decoded_packet: DecodedCommandPacket | DecodedResponsePacket |
-                            DecodedMessagePacket):
-        """Called from the packet decoder on each receive packet"""
-        logger.debug("Queuing incoming packet of type [%s.]", type(decoded_packet).__name__)
-        self.__work_queue.put_nowait(decoded_packet)
+    # def __on_decoded_packet(self, decoded_packet: DecodedCommandPacket | DecodedResponsePacket |
+    #                         DecodedMessagePacket):
+    #     """Called from the packet decoder on each receive packet"""
+    #     logger.debug("Queuing incoming packet of type [%s.]", type(decoded_packet).__name__)
+    #     self.__work_queue.put_nowait(decoded_packet)
 
     def __create_loop_runner_task(self, task_loop, name):
         logger.debug("Creating task '%s'", name)

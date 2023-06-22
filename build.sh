@@ -5,7 +5,10 @@
 # Abort if error
 set -xe
 
-rm -r ./dist
+if [ -e "./dist" ]; then
+  rm -r ./dist
+fi
+
 python -m pip install --upgrade build
 python -m build
 
