@@ -9,8 +9,8 @@ import traceback
 from enum import Enum
 from typing import Optional, Tuple, Dict, Callable
 from asyncio.transports import BaseTransport
-from ._packet_encoder import PacketEncoder
-from ._packet_decoder import PacketDecoder, DecodedCommandPacket, DecodedResponsePacket, DecodedMessagePacket
+from .packet_encoder import PacketEncoder
+from .packet_decoder import PacketDecoder, DecodedCommandPacket, DecodedResponsePacket, DecodedMessagePacket
 from ._packets import PacketType, MAX_DATA_LEN, MIN_CMD_TIMEOUT, MAX_CMD_TIMEOUT, DEFAULT_CMD_TIMEOUT, MIN_WORKERS_COUNT, MAX_WORKERS_COUNT, DEFAULT_WORKERS_COUNT
 # from ._interval_tracker import IntervalTracker
 from .packets import PacketStatus, PacketsEvent, PacketsEventType, PacketsEvent, PacketData, MAX_USER_ENDPOINT

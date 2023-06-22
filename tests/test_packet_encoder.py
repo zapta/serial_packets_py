@@ -6,7 +6,7 @@ import sys
 # Assuming VSCode project opened at repo directory
 sys.path.insert(0, "./src")
 
-from serial_packets._packet_encoder import PacketEncoder
+from serial_packets.packet_encoder import PacketEncoder
 
 
 class TestPacketEncoder(unittest.TestCase):
