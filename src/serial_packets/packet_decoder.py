@@ -42,6 +42,15 @@ class DecodedMessagePacket:
 
     def __str__(self):
         return f"Message packet: {self.endpoint}, {self.data.size()}"
+      
+      
+class DecodedLogPacket:
+
+    def __init__(self,  data: PacketData):
+        self.data: PacketData = data
+
+    def __str__(self):
+        return f"Log packet: {self.data.size()}"
 
 
 class PacketDecoder:
@@ -62,13 +71,7 @@ class PacketDecoder:
         self.__pending_escape = False
         self.__packet_bfr.clear()
 
-    # async def get_next_packet(self):
-    #     """Blocking asyncio fetch of next pending packet."""
-    #     return await self.__packets_queue.get()
-
-    # def receive(self, data: bytes):
-    #     for b in data:
-    #         self.__receive_byte(b)
+   
 
     def receive_byte(
         self, b: int
@@ -177,6 +180,9 @@ class PacketDecoder:
             endpoint = rx_bfr[1]
             data = PacketData().add_bytes(rx_bfr[2:-2])
             decoded_packet = DecodedMessagePacket(endpoint, data)
+        elif type_value == PacketType.LOG.value:
+            data = PacketData().add_bytes(rx_bfr[1:-2])
+            decoded_packet = DecodedLogPacket(data)
         else:
             logger.error("Invalid packet type %02x, dropping packet",
                          type.value)

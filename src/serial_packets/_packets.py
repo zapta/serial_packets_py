@@ -36,3 +36,4 @@ class PacketType(Enum):
     COMMAND = 1
     RESPONSE = 2
     MESSAGE = 3
+    LOG = 4

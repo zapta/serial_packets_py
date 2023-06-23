@@ -6,19 +6,13 @@ import sys
 # Assuming VSCode project opened at repo directory
 sys.path.insert(0, "./src")
 
-from serial_packets.packet_decoder import PacketDecoder, DecodedCommandPacket, DecodedResponsePacket, DecodedMessagePacket
+from serial_packets.packet_decoder import PacketDecoder, DecodedCommandPacket, DecodedResponsePacket, DecodedMessagePacket, DecodedLogPacket
 
 
 class TestPacketEncoder(unittest.TestCase):
 
     def setUp(self):
         self.packets = []
-
-    # def packet_callback(
-    #         self,
-    #         packet: DecodedCommandPacket | DecodedResponsePacket | DecodedMessagePacket) -> None:
-    #     print(f"Callback got a packet: {packet}")
-    #     self.packets.append(packet)
 
     def decode_bytes(self, d: PacketDecoder, serial_data: bytes):
         """Decoded packets are appended to self.packets."""
@@ -83,6 +77,25 @@ class TestPacketEncoder(unittest.TestCase):
         self.assertIsInstance(packet, DecodedMessagePacket)
         self.assertEqual(packet.endpoint, 0x20)
         # print(f"Actual: 0x{packet.data.data_bytes().hex(sep='#').replace('#', ', 0x')}")
+        self.assertEqual(packet.data.data_bytes(),
+                         bytearray([0xff, 0x00, 0x7c, 0x11, 0x7e, 0x22, 0x7d, 0x99]))
+        self.assertEqual(len(d._PacketDecoder__packet_bfr), 0)
+        self.assertFalse(d._PacketDecoder__in_packet)
+        self.assertFalse(d._PacketDecoder__pending_escape)
+
+    def test_decode_log_packet(self):
+        """Tests decoding of a log packet."""
+        d = PacketDecoder()
+        self.decode_bytes(
+            d,
+            bytes([
+                0x7c, 0x04, 0xff, 0x00, 0x7d, 0x5c, 0x11, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0x99, 0x94,
+                0xba, 0x7e
+            ]))
+        self.assertEqual(len(self.packets), 1)
+        packet: DecodedLogPacket = self.packets[0]
+        self.assertIsInstance(packet, DecodedLogPacket)
+        print(f"Actual: 0x{packet.data.data_bytes().hex(sep='#').replace('#', ', 0x')}")
         self.assertEqual(packet.data.data_bytes(),
                          bytearray([0xff, 0x00, 0x7c, 0x11, 0x7e, 0x22, 0x7d, 0x99]))
         self.assertEqual(len(d._PacketDecoder__packet_bfr), 0)

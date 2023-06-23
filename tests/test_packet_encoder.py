@@ -37,7 +37,7 @@ class TestPacketEncoder(unittest.TestCase):
         e = PacketEncoder()
         data = bytearray([0xff, 0x00, 0x7c, 0x11, 0x7e, 0x22, 0x7d, 0x99])
         packet = e._PacketEncoder__construct_response_packet(0x12345678, 0x20, data)
-        print(f"Actual: 0x{packet.hex(sep='#').replace('#', ', 0x')}")
+        # print(f"Actual: 0x{packet.hex(sep='#').replace('#', ', 0x')}")
         self.assertEqual(
             packet,
             bytearray([
@@ -53,6 +53,14 @@ class TestPacketEncoder(unittest.TestCase):
         self.assertEqual(
             packet,
             bytearray([0x03, 0x20, 0xff, 0x00, 0x7c, 0x11, 0x7e, 0x22, 0x7d, 0x99, 0xe7, 0x2d]))
+
+    def test_construct_log_packet(self):
+        e = PacketEncoder()
+        data = bytearray([0xff, 0x00, 0x7c, 0x11, 0x7e, 0x22, 0x7d, 0x99])
+        packet = e._PacketEncoder__construct_log_packet(data)
+        # print(f"Actual: 0x{packet.hex(sep='#').replace('#', ', 0x')}")
+        self.assertEqual(
+            packet, bytearray([0x04, 0xff, 0x00, 0x7c, 0x11, 0x7e, 0x22, 0x7d, 0x99, 0x94, 0xba]))
 
     def test_encode_command_packet(self):
         e = PacketEncoder()
@@ -88,6 +96,18 @@ class TestPacketEncoder(unittest.TestCase):
             bytearray([
                 0x7c, 0x03, 0x20, 0xff, 0x00, 0x7d, 0x5c, 0x11, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0x99,
                 0xe7, 0x2d, 0x7e
+            ]))
+
+    def test_encode_log_packet(self):
+        e = PacketEncoder()
+        data = bytearray([0xff, 0x00, 0x7c, 0x11, 0x7e, 0x22, 0x7d, 0x99])
+        packet = e.encode_log_packet(data)
+        print(f"Actual: 0x{packet.hex(sep='#').replace('#', ', 0x')}")
+        self.assertEqual(
+            packet,
+            bytearray([
+                0x7c, 0x04, 0xff, 0x00, 0x7d, 0x5c, 0x11, 0x7d, 0x5e, 0x22, 0x7d, 0x5d, 0x99, 0x94,
+                0xba, 0x7e
             ]))
 
 

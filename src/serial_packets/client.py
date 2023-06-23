@@ -12,7 +12,6 @@ from asyncio.transports import BaseTransport
 from .packet_encoder import PacketEncoder
 from .packet_decoder import PacketDecoder, DecodedCommandPacket, DecodedResponsePacket, DecodedMessagePacket
 from ._packets import PacketType, MAX_DATA_LEN, MIN_CMD_TIMEOUT, MAX_CMD_TIMEOUT, DEFAULT_CMD_TIMEOUT, MIN_WORKERS_COUNT, MAX_WORKERS_COUNT, DEFAULT_WORKERS_COUNT
-# from ._interval_tracker import IntervalTracker
 from .packets import PacketStatus, PacketsEvent, PacketsEventType, PacketsEvent, PacketData, MAX_USER_ENDPOINT
 
 logger = logging.getLogger(__name__)
@@ -182,11 +181,7 @@ class SerialPacketsClient:
         self.__protocol.set(self, self.__port, self.__packet_decoder, self.__work_queue)
         return True
 
-    # def __on_decoded_packet(self, decoded_packet: DecodedCommandPacket | DecodedResponsePacket |
-    #                         DecodedMessagePacket):
-    #     """Called from the packet decoder on each receive packet"""
-    #     logger.debug("Queuing incoming packet of type [%s.]", type(decoded_packet).__name__)
-    #     self.__work_queue.put_nowait(decoded_packet)
+  
 
     def __create_loop_runner_task(self, task_loop, name):
         logger.debug("Creating task '%s'", name)

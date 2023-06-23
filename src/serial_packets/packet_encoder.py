@@ -49,6 +49,16 @@ class PacketEncoder:
         packet.extend(crc.to_bytes(2, 'big'))
         assert (len(packet) <= MAX_PACKET_LEN)
         return packet
+      
+    def __construct_log_packet(self,  data: bytearray):
+        """Constructs a log packet, before byte stuffing"""
+        packet = bytearray()
+        packet.append(PacketType.LOG.value)
+        packet.extend(data)
+        crc = self.__crc_calc.calculate(bytes(packet))
+        packet.extend(crc.to_bytes(2, 'big'))
+        assert (len(packet) <= MAX_PACKET_LEN)
+        return packet
 
     def __byte_stuffing(self, packet: bytearray):
         """Byte stuff the packet using HDLC format. Also adds packet flag(s)"""
@@ -81,5 +91,12 @@ class PacketEncoder:
         """Returns the message packet in wire format"""
         assert (len(data) <= MAX_DATA_LEN)
         packet = self.__construct_message_packet(endpoint, data)
+        stuffed_packet = self.__byte_stuffing(packet)
+        return stuffed_packet
+      
+    def encode_log_packet(self,  data: bytearray):
+        """Returns the log packet in wire format"""
+        assert (len(data) <= MAX_DATA_LEN)
+        packet = self.__construct_log_packet(data)
         stuffed_packet = self.__byte_stuffing(packet)
         return stuffed_packet
