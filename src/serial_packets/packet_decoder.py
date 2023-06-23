@@ -185,7 +185,7 @@ class PacketDecoder:
             decoded_packet = DecodedLogPacket(data)
         else:
             logger.error("Invalid packet type %02x, dropping packet",
-                         type.value)
+                         type_value)
             return None
 
         if data.size() > MAX_DATA_LEN:
