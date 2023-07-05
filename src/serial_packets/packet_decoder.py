@@ -152,6 +152,8 @@ class PacketDecoder:
         # Check for minimum length. A minimum we should
         # have a type byte and two CRC bytes.
         n = len(rx_bfr)
+        # logger.info(f"Packet candidate: len={n}")
+        # logger.info(f"Packet: {rx_bfr.hex(sep=' ')}")
         if n < MIN_PACKET_LEN:
             logger.error("Packet too short (%d), dropping", n)
             return None
@@ -160,7 +162,7 @@ class PacketDecoder:
         packet_crc = int.from_bytes(rx_bfr[-2:], byteorder='big', signed=False)
         computed_crc = self.__crc_calc.calculate(bytes(rx_bfr[:-2]))
         if computed_crc != packet_crc:
-            logger.error("Packet CRC error %04x vs %04x, dropping", packet_crc,
+            logger.error("Packet CRC error, packet: %04x vs computed: %04x, dropping", packet_crc,
                          computed_crc)
             return None
 
@@ -193,8 +195,8 @@ class PacketDecoder:
                          type_value, data.size())
             return None
 
-        # Inform the user about the new packet.
-        # self.__decoded_packet_callback(decoded_packet)
+        # A new packet is available.
+        # logger.info("A packet is available.")
         return decoded_packet
 
         # self.__packets_queue.put_nowait(decoded_packet)
