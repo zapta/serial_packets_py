@@ -172,7 +172,7 @@ class SerialPacketsClient:
         logger.debug("Connecting to port [%s]", self.__port)
         try:
             self.__transport, self.__protocol = await serial_asyncio.create_serial_connection(
-                asyncio.get_event_loop(), _SerialProtocol, self.__port, baudrate=self.__baudrate)
+                asyncio.get_running_loop(), _SerialProtocol, self.__port, baudrate=self.__baudrate)
         except Exception as e:
             logger.error("%s", e)
             if logging.DEBUG >= logger.getEffectiveLevel():
