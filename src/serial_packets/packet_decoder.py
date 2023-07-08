@@ -61,7 +61,8 @@ class PacketDecoder:
         self.__packet_bfr = bytearray()
         self.__in_packet = False
         self.__pending_escape = False
-        # self.__decoded_packet_callback = decoded_packet_callback
+        # Used to filter warnings before first packet.
+        self.__encountered_start_flag = False
 
     def __str__(self):
         return f"In_packet ={self.__in_packet}, pending_escape={self.__pending_escape}, len={len(self.__packet_bytes)}"
@@ -83,10 +84,13 @@ class PacketDecoder:
             if b == PACKET_START_FLAG:
                 # Start collecting a packet.
                 self.__reset_packet(True)
+                self.__encountered_start_flag = True
             else:
                 # Here we drop bytes until next packet start. Should not
-                # happen in normal operation.
-                logger.error(f"Dropping byte {b:02x}")
+                # happen in normal operation, except when connecting to 
+                # and on going communication.
+                if self.__encountered_start_flag:
+                  logger.error(f"Dropping byte {b:02x}")
                 pass
             return None
 
