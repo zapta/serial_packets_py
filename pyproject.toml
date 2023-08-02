@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "serial_packets"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
   { name="Zapta", email="zapta@zapta.com" },
 ]

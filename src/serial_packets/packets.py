@@ -70,7 +70,7 @@ class PacketData:
     def hex_str(self, max_bytes=None) -> str:
         """Returns a string with a hex dump fo the bytes. Can be long."""
         if (max_bytes is None) or (self.size() <= max_bytes):
-            return  self.__data.hex(sep=' ')
+            return self.__data.hex(sep=' ')
         prefix = self.__data[:max_bytes].hex(sep=" ")
         return f"{prefix} ... ({self.size() - max_bytes} more)"
 
@@ -170,7 +170,7 @@ class PacketData:
                                 signed=False)
         self.__bytes_read += 2
         return result
-      
+
     def read_int24(self) -> int | None:
         """Decodes the next 3 bytes as a 24 bits signed big endian value.
         Returns the 24 bit number and advances the reading location by 3 bytes,
@@ -209,3 +209,16 @@ class PacketData:
         result = self.__data[self.__bytes_read:self.__bytes_read + n]
         self.__bytes_read += n
         return result
+
+    def read_str(self) -> str | None:
+        """Returns the next string or null if read error."""
+        if self.__read_error or self.__bytes_read + 1 > len(self.__data):
+            self.__read_error = True
+            return None
+        # Read length byte.
+        n = self.read_uint8()
+        # Read characters.
+        str_bytes = self.read_bytes(n)
+        if self.__read_error:
+            return None
+        return str_bytes.decode("utf-8")
