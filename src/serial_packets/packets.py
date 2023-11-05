@@ -171,6 +171,20 @@ class PacketData:
         self.__bytes_read += 2
         return result
 
+    def read_int16(self) -> int | None:
+        """Decodes the next 2 bytes as a 16 bits signed big endian value.
+        Returns the 16 bit number and advances the reading location by 2 bytes,
+        or returns None if insufficient number of bytes to read.
+        """
+        if self.__read_error or self.__bytes_read + 2 > len(self.__data):
+            self.__read_error = True
+            return None
+        result = int.from_bytes(self.__data[self.__bytes_read:self.__bytes_read + 2],
+                                byteorder='big',
+                                signed=True)
+        self.__bytes_read += 2
+        return result
+      
     def read_int24(self) -> int | None:
         """Decodes the next 3 bytes as a 24 bits signed big endian value.
         Returns the 24 bit number and advances the reading location by 3 bytes,
