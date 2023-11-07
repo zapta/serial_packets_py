@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Iterable
-import logging
 
 # Max size of data that is sent in a command request, command response,
 # or in a message. This is the original size in bytes before byte stuffing.
@@ -118,6 +116,9 @@ class PacketData:
 
     # --- Adding data
 
+    # TODO: Change the implementation of writing uints to a helper method 
+    # similar to __read_int().
+
     def add_uint8(self, val: int) -> PacketData:
         """Asserts that the value is in the range [0, 0xff] and appends it 
         to the data as a single byte."""
@@ -146,72 +147,44 @@ class PacketData:
 
     #  --- Parsing data
 
-    def read_uint8(self) -> int | None:
-        """Returns the next byte and advance the reading location by one byte,
-        or returns None if already at the end of the daata.
+    def __read_int(self, num_bytes: int, signed: bool) -> int | None:
+        """If this buffer is not in a read error condition and if it has least
+        num_bytes left to read, read num_bytes bytes
+        as a big endian int value and return that value. Otherwise, returns 
+        None and set the read error condition.
         """
-        if self.__read_error or self.__bytes_read + 1 > len(self.__data):
+        if self.__read_error or self.__bytes_read + num_bytes > len(self.__data):
             self.__read_error = True
             return None
-        result = self.__data[self.__bytes_read]
-        self.__bytes_read += 1
+        result = int.from_bytes(self.__data[self.__bytes_read:self.__bytes_read + num_bytes],
+                                byteorder='big',
+                                signed=signed)
+        self.__bytes_read += num_bytes
         return result
 
+    def read_uint8(self) -> int | None:
+        return self.__read_int( num_bytes=1, signed=False)
+       
     def read_uint16(self) -> int | None:
-        """Decodes the next 2 bytes as a 16 bits unsigned big endian value.
-        Returns the 16 bit number and advances the reading location by 2 bytes,
-        or returns None if insufficient number of bytes to read.
-        """
-        if self.__read_error or self.__bytes_read + 2 > len(self.__data):
-            self.__read_error = True
-            return None
-        result = int.from_bytes(self.__data[self.__bytes_read:self.__bytes_read + 2],
-                                byteorder='big',
-                                signed=False)
-        self.__bytes_read += 2
-        return result
+        return self.__read_int(num_bytes=2, signed=False)
+      
+    def read_uint24(self) -> int | None:
+        return self.__read_int(num_bytes=3, signed=False)
+      
+    def read_uint32(self) -> int | None:
+        return self.__read_int(num_bytes=4, signed=False)
+      
+    def read_int8(self) -> int | None:
+        return self.__read_int(num_bytes=1, signed=True)
 
     def read_int16(self) -> int | None:
-        """Decodes the next 2 bytes as a 16 bits signed big endian value.
-        Returns the 16 bit number and advances the reading location by 2 bytes,
-        or returns None if insufficient number of bytes to read.
-        """
-        if self.__read_error or self.__bytes_read + 2 > len(self.__data):
-            self.__read_error = True
-            return None
-        result = int.from_bytes(self.__data[self.__bytes_read:self.__bytes_read + 2],
-                                byteorder='big',
-                                signed=True)
-        self.__bytes_read += 2
-        return result
+        return self.__read_int(num_bytes=2, signed=True)
       
     def read_int24(self) -> int | None:
-        """Decodes the next 3 bytes as a 24 bits signed big endian value.
-        Returns the 24 bit number and advances the reading location by 3 bytes,
-        or returns None if insufficient number of bytes to read.
-        """
-        if self.__read_error or self.__bytes_read + 3 > len(self.__data):
-            self.__read_error = True
-            return None
-        result = int.from_bytes(self.__data[self.__bytes_read:self.__bytes_read + 3],
-                                byteorder='big',
-                                signed=True)
-        self.__bytes_read += 3
-        return result
+        return self.__read_int(num_bytes=3, signed=True)
 
-    def read_uint32(self) -> int | None:
-        """Decodes the next 4 bytes as am unsigned  32 bits big endian value.
-        Returns the 32 bit number and advances the reading location by 4 bytes,
-        or returns None if insufficient number of bytes to read.
-        """
-        if self.__read_error or self.__bytes_read + 4 > len(self.__data):
-            self.__read_error = True
-            return None
-        result = int.from_bytes(self.__data[self.__bytes_read:self.__bytes_read + 4],
-                                byteorder='big',
-                                signed=False)
-        self.__bytes_read += 4
-        return result
+    def read_int32(self) -> int | None:
+        return self.__read_int(num_bytes=4, signed=True)
 
     def read_bytes(self, n: int) -> bytearray | None:
         """Returns the next n bytes and advances the reading location,
